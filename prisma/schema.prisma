@@ -1,0 +1,751 @@
+// Veltrix Automation Platform - Database Schema
+// Enterprise-grade automation with TikTok-native support
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MULTI-TENANT & AUTH
+// ============================================
+
+enum UserRole {
+  SUPER_ADMIN  // Platform owner
+  AGENCY_OWNER // Agency using the platform
+  BUSINESS_OWNER // Business owner client
+  ADMIN
+  STAFF
+  VIEWER
+}
+
+enum TenantType {
+  AGENCY    // White-label agency
+  BUSINESS  // Single business
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  type      TenantType
+  
+  // White-label settings
+  brandName      String?
+  logo           String?
+  primaryColor   String?
+  domain         String?
+  
+  // Subscription
+  plan           String   @default("free")
+  maxUsers       Int      @default(5)
+  maxLeads       Int      @default(1000)
+  maxAutomations Int      @default(10)
+  
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  users         User[]
+  leads         Lead[]
+  pipelines     Pipeline[]
+  automations   Automation[]
+  conversations Conversation[]
+  integrations  Integration[]
+  
+  @@index([slug])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      UserRole @default(STAFF)
+  avatar    String?
+  phone     String?
+  
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  active    Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  assignedLeads    Lead[]      @relation("AssignedTo")
+  activities       Activity[]
+  notifications    Notification[]
+  automationRuns   AutomationRun[]
+  
+  @@index([tenantId])
+  @@index([email])
+}
+
+// ============================================
+// UNIVERSAL LEAD CAPTURE ENGINE
+// ============================================
+
+enum LeadSource {
+  WEBSITE
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  TIKTOK
+  EMAIL
+  PHONE
+  MANUAL
+  API
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  HOT
+  WARM
+  COLD
+  CONVERTED
+  LOST
+  ARCHIVED
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  
+  // Identity (normalized across platforms)
+  fullName      String
+  email         String?
+  phone         String?
+  avatar        String?
+  
+  // Lead scoring
+  status        LeadStatus @default(NEW)
+  score         Int        @default(0)
+  priority      Int        @default(0)
+  
+  // Source tracking
+  primarySource LeadSource
+  sources       LeadSource[] // Can come from multiple platforms
+  
+  // Business context
+  company       String?
+  position      String?
+  industry      String?
+  budget        Float?
+  
+  // AI Classification
+  intent        String?    // "pricing", "demo", "support", etc.
+  urgency       String?    // "high", "medium", "low"
+  qualification Json?      // AI-generated insights
+  
+  // Tags & Categories
+  tags          String[]
+  customFields  Json?      // Flexible custom data
+  
+  // Pipeline
+  pipelineId    String?
+  pipeline      Pipeline?  @relation(fields: [pipelineId], references: [id])
+  stageId       String?
+  stage         PipelineStage? @relation(fields: [stageId], references: [id])
+  
+  // Assignment
+  assignedToId  String?
+  assignedTo    User?      @relation("AssignedTo", fields: [assignedToId], references: [id])
+  
+  // Tenant
+  tenantId      String
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  firstContactAt DateTime @default(now())
+  lastContactAt  DateTime @default(now())
+  convertedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  platformAccounts PlatformAccount[]
+  conversations    Conversation[]
+  activities       Activity[]
+  appointments     Appointment[]
+  invoices         Invoice[]
+  deals            Deal[]
+  automationRuns   AutomationRun[]
+  
+  @@index([tenantId])
+  @@index([status])
+  @@index([primarySource])
+  @@index([assignedToId])
+  @@index([pipelineId])
+  @@index([email])
+  @@index([phone])
+}
+
+// Link leads to their various platform accounts
+model PlatformAccount {
+  id         String     @id @default(cuid())
+  platform   LeadSource
+  platformId String     // Their ID on that platform
+  username   String?
+  profileUrl String?
+  metadata   Json?      // Platform-specific data
+  
+  leadId     String
+  lead       Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  verified   Boolean    @default(false)
+  primary    Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  
+  @@unique([platform, platformId])
+  @@index([leadId])
+}
+
+// ============================================
+// UNIFIED CRM & PIPELINES
+// ============================================
+
+model Pipeline {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  color       String?
+  
+  // Pipeline behavior
+  autoMove    Boolean  @default(false) // Auto-move based on rules
+  dealTracking Boolean @default(false) // Track revenue/deals
+  
+  position    Int      @default(0)
+  active      Boolean  @default(true)
+  
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  stages      PipelineStage[]
+  leads       Lead[]
+  deals       Deal[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([tenantId])
+}
+
+model PipelineStage {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String?
+  
+  position    Int      @default(0)
+  isClosedWon Boolean  @default(false)
+  isClosedLost Boolean @default(false)
+  
+  pipelineId  String
+  pipeline    Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  
+  leads       Lead[]
+  deals       Deal[]
+  automations Automation[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([pipelineId])
+}
+
+model Deal {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  value       Float    @default(0)
+  currency    String   @default("USD")
+  
+  probability Int      @default(50) // 0-100%
+  expectedCloseDate DateTime?
+  actualCloseDate   DateTime?
+  
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  pipelineId  String
+  pipeline    Pipeline @relation(fields: [pipelineId], references: [id])
+  
+  stageId     String
+  stage       PipelineStage @relation(fields: [stageId], references: [id])
+  
+  status      String   @default("open") // open, won, lost
+  lostReason  String?
+  
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([leadId])
+  @@index([pipelineId])
+  @@index([status])
+}
+
+// ============================================
+// MULTI-CHANNEL MESSAGING
+// ============================================
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model Conversation {
+  id          String   @id @default(cuid())
+  
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  platform    LeadSource
+  
+  // Unified conversation thread
+  lastMessage     String?
+  lastMessageAt   DateTime?
+  unreadCount     Int      @default(0)
+  
+  active          Boolean  @default(true)
+  archived        Boolean  @default(false)
+  
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  messages        Message[]
+  
+  metadata        Json?    // Platform-specific data
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([leadId])
+  @@index([tenantId])
+  @@index([platform])
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  direction       MessageDirection
+  status          MessageStatus @default(PENDING)
+  
+  // Content
+  content         String   @db.Text
+  contentType     String   @default("text") // text, image, video, file
+  mediaUrl        String?
+  mediaType       String?
+  
+  // Platform details
+  platform        LeadSource
+  platformMessageId String?
+  
+  // AI Analysis
+  sentiment       String?  // positive, negative, neutral
+  intent          String?  // question, complaint, interest, etc.
+  aiProcessed     Boolean  @default(false)
+  
+  // Automation
+  automated       Boolean  @default(false)
+  automationRunId String?
+  
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  readAt          DateTime?
+  
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+// ============================================
+// SMART AUTOMATION ENGINE
+// ============================================
+
+enum AutomationTrigger {
+  LEAD_CREATED
+  LEAD_UPDATED
+  MESSAGE_RECEIVED
+  STAGE_CHANGED
+  TAG_ADDED
+  APPOINTMENT_BOOKED
+  PAYMENT_RECEIVED
+  TIME_BASED
+  WEBHOOK
+  MANUAL
+}
+
+enum AutomationActionType {
+  SEND_MESSAGE
+  SEND_EMAIL
+  ADD_TAG
+  REMOVE_TAG
+  CHANGE_STAGE
+  ASSIGN_USER
+  CREATE_TASK
+  UPDATE_FIELD
+  WAIT
+  CONDITIONAL
+  WEBHOOK
+  AI_CLASSIFY
+  NOTIFY_OWNER
+}
+
+model Automation {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // Trigger configuration
+  trigger     AutomationTrigger
+  triggerConfig Json?  // Specific conditions
+  
+  // Filters (who this applies to)
+  filters     Json?    // source, tags, status, etc.
+  
+  // Actions sequence
+  actions     AutomationAction[]
+  
+  // Pipeline specific
+  pipelineId    String?
+  pipeline      PipelineStage? @relation(fields: [pipelineId], references: [id])
+  
+  // Status
+  active      Boolean  @default(true)
+  priority    Int      @default(0)
+  
+  // Stats
+  runCount    Int      @default(0)
+  successCount Int     @default(0)
+  failCount   Int      @default(0)
+  
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  runs        AutomationRun[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([tenantId])
+  @@index([trigger])
+  @@index([active])
+}
+
+model AutomationAction {
+  id            String   @id @default(cuid())
+  
+  automationId  String
+  automation    Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  
+  type          AutomationActionType
+  config        Json     // Action-specific configuration
+  
+  position      Int      @default(0)
+  
+  // Conditional logic
+  condition     Json?    // If/else conditions
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([automationId])
+}
+
+model AutomationRun {
+  id            String   @id @default(cuid())
+  
+  automationId  String
+  automation    Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  
+  leadId        String
+  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  triggeredBy   String?  // What triggered this run
+  
+  status        String   // running, completed, failed
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+  
+  // Execution details
+  steps         Json?    // Log of each step
+  error         String?
+  
+  executedById  String?
+  executedBy    User?    @relation(fields: [executedById], references: [id])
+  
+  @@index([automationId])
+  @@index([leadId])
+  @@index([startedAt])
+}
+
+// ============================================
+// ACTIVITY & TIMELINE
+// ============================================
+
+enum ActivityType {
+  NOTE
+  CALL
+  EMAIL
+  MESSAGE
+  MEETING
+  TASK
+  STAGE_CHANGE
+  STATUS_CHANGE
+  FIELD_UPDATE
+  AUTOMATION
+  PAYMENT
+  DOCUMENT
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  type        ActivityType
+  
+  title       String
+  description String?  @db.Text
+  
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  // Activity metadata
+  metadata    Json?
+  
+  // Task-specific
+  completed   Boolean? @default(false)
+  dueDate     DateTime?
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([leadId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ============================================
+// APPOINTMENTS & SCHEDULING
+// ============================================
+
+model Appointment {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  startTime   DateTime
+  endTime     DateTime
+  timezone    String   @default("UTC")
+  
+  location    String?  // Physical or video link
+  meetingType String?  // "in-person", "zoom", "teams", etc.
+  
+  status      String   @default("scheduled") // scheduled, confirmed, completed, cancelled
+  
+  reminders   Json?    // Reminder configuration
+  metadata    Json?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([leadId])
+  @@index([startTime])
+}
+
+// ============================================
+// PAYMENTS & INVOICING
+// ============================================
+
+model Invoice {
+  id          String   @id @default(cuid())
+  invoiceNumber String @unique
+  
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  amount      Float
+  currency    String   @default("USD")
+  tax         Float    @default(0)
+  total       Float
+  
+  status      String   @default("draft") // draft, sent, paid, overdue, cancelled
+  
+  dueDate     DateTime
+  paidAt      DateTime?
+  
+  items       Json     // Line items
+  notes       String?  @db.Text
+  
+  // Payment integration
+  stripeInvoiceId String?
+  paymentMethod   String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([leadId])
+  @@index([status])
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+enum NotificationType {
+  LEAD_QUALIFIED
+  APPOINTMENT_BOOKED
+  PAYMENT_RECEIVED
+  MESSAGE_RECEIVED
+  AUTOMATION_FAILED
+  SYSTEM
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  type        NotificationType
+  
+  title       String
+  message     String   @db.Text
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  read        Boolean  @default(false)
+  readAt      DateTime?
+  
+  // Link to related entity
+  entityType  String?  // "lead", "appointment", etc.
+  entityId    String?
+  
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+// ============================================
+// PLATFORM INTEGRATIONS
+// ============================================
+
+enum IntegrationType {
+  TIKTOK
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  WHATSAPP
+  EMAIL
+  STRIPE
+  CUSTOM_WEBHOOK
+}
+
+model Integration {
+  id          String   @id @default(cuid())
+  type        IntegrationType
+  name        String
+  
+  // Credentials (encrypted)
+  credentials Json
+  
+  // Configuration
+  config      Json?
+  
+  active      Boolean  @default(true)
+  
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Health monitoring
+  lastSyncAt  DateTime?
+  lastError   String?
+  syncStatus  String   @default("active") // active, error, disabled
+  
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  webhookLogs WebhookLog[]
+  
+  @@index([tenantId])
+  @@index([type])
+}
+
+model WebhookLog {
+  id            String   @id @default(cuid())
+  
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  
+  // Request details
+  method        String
+  endpoint      String
+  headers       Json?
+  payload       Json?
+  
+  // Response
+  status        Int
+  response      Json?
+  error         String?
+  
+  // Processing
+  processed     Boolean  @default(false)
+  processedAt   DateTime?
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([integrationId])
+  @@index([createdAt])
+}
+
+// ============================================
+// ANALYTICS & REPORTING
+// ============================================
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  
+  tenantId    String
+  
+  // Event details
+  event       String   // "lead_created", "message_sent", etc.
+  category    String   // "lead", "message", "automation"
+  
+  // Dimensions
+  source      String?
+  userId      String?
+  leadId      String?
+  
+  // Metrics
+  value       Float?
+  metadata    Json?
+  
+  timestamp   DateTime @default(now())
+  
+  @@index([tenantId])
+  @@index([event])
+  @@index([timestamp])
+}

@@ -1,0 +1,316 @@
+import { PrismaClient } from '@prisma/client';
+import { hashPassword } from '../lib/auth';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('🌱 Starting seed...');
+
+  // Create demo tenant
+  const tenant = await prisma.tenant.upsert({
+    where: { id: 'demo-tenant' },
+    update: {},
+    create: {
+      id: 'demo-tenant',
+      name: 'Demo Agency',
+      slug: 'demo-agency',
+      email: 'demo@veltrix.com',
+      phone: '+1234567890',
+      website: 'https://veltrix.com',
+      logo: 'https://api.dicebear.com/7.x/initials/svg?seed=Demo',
+      timezone: 'America/New_York',
+      currency: 'USD',
+      settings: {
+        businessHours: {
+          monday: { open: '09:00', close: '18:00' },
+          tuesday: { open: '09:00', close: '18:00' },
+          wednesday: { open: '09:00', close: '18:00' },
+          thursday: { open: '09:00', close: '18:00' },
+          friday: { open: '09:00', close: '18:00' },
+        },
+      },
+    },
+  });
+
+  console.log('✅ Tenant created:', tenant.name);
+
+  // Create demo user
+  const hashedPassword = await hashPassword('demo123');
+  const user = await prisma.user.upsert({
+    where: { email: 'demo@veltrix.com' },
+    update: {},
+    create: {
+      email: 'demo@veltrix.com',
+      name: 'Demo User',
+      password: hashedPassword,
+      role: 'AGENCY_OWNER',
+      tenantId: tenant.id,
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Demo',
+    },
+  });
+
+  console.log('✅ User created:', user.email);
+
+  // Create pipeline
+  const pipeline = await prisma.pipeline.create({
+    data: {
+      name: 'Sales Pipeline',
+      description: 'Main sales pipeline for all leads',
+      tenantId: tenant.id,
+      order: 0,
+      stages: {
+        create: [
+          { name: 'New Lead', color: '#3b82f6', order: 0 },
+          { name: 'Contacted', color: '#8b5cf6', order: 1 },
+          { name: 'Qualified', color: '#10b981', order: 2 },
+          { name: 'Proposal Sent', color: '#f59e0b', order: 3 },
+          { name: 'Negotiation', color: '#ef4444', order: 4 },
+          { name: 'Won', color: '#22c55e', order: 5 },
+          { name: 'Lost', color: '#6b7280', order: 6 },
+        ],
+      },
+    },
+    include: { stages: true },
+  });
+
+  console.log('✅ Pipeline created:', pipeline.name);
+
+  // Create fake leads
+  const leadNames = [
+    { name: 'Sarah Johnson', email: 'sarah.johnson@email.com', phone: '+1234567001', platform: 'TIKTOK' },
+    { name: 'Michael Chen', email: 'michael.chen@email.com', phone: '+1234567002', platform: 'WHATSAPP' },
+    { name: 'Emma Williams', email: 'emma.williams@email.com', phone: '+1234567003', platform: 'INSTAGRAM' },
+    { name: 'James Brown', email: 'james.brown@email.com', phone: '+1234567004', platform: 'FACEBOOK' },
+    { name: 'Olivia Davis', email: 'olivia.davis@email.com', phone: '+1234567005', platform: 'LINKEDIN' },
+    { name: 'Liam Martinez', email: 'liam.martinez@email.com', phone: '+1234567006', platform: 'TIKTOK' },
+    { name: 'Sophia Garcia', email: 'sophia.garcia@email.com', phone: '+1234567007', platform: 'WHATSAPP' },
+    { name: 'Noah Rodriguez', email: 'noah.rodriguez@email.com', phone: '+1234567008', platform: 'INSTAGRAM' },
+    { name: 'Ava Wilson', email: 'ava.wilson@email.com', phone: '+1234567009', platform: 'FACEBOOK' },
+    { name: 'Ethan Taylor', email: 'ethan.taylor@email.com', phone: '+1234567010', platform: 'TIKTOK' },
+  ];
+
+  const leads = [];
+  for (const leadData of leadNames) {
+    const lead = await prisma.lead.create({
+      data: {
+        tenantId: tenant.id,
+        name: leadData.name,
+        email: leadData.email,
+        phone: leadData.phone,
+        source: [leadData.platform as any],
+        status: Math.random() > 0.5 ? 'NEW' : 'CONTACTED',
+        assignedToId: user.id,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${leadData.name}`,
+        tags: ['demo', leadData.platform.toLowerCase()],
+        customFields: {
+          interest: ['social-media-marketing', 'automation'][Math.floor(Math.random() * 2)],
+          budget: ['$500-$1000', '$1000-$5000', '$5000+'][Math.floor(Math.random() * 3)],
+        },
+        score: Math.floor(Math.random() * 100),
+        qualification: ['HOT', 'WARM', 'COLD'][Math.floor(Math.random() * 3)] as any,
+      },
+    });
+    leads.push(lead);
+
+    // Create platform account
+    await prisma.platformAccount.create({
+      data: {
+        tenantId: tenant.id,
+        leadId: lead.id,
+        platform: leadData.platform as any,
+        platformUserId: `${leadData.platform.toLowerCase()}_${Math.random().toString(36).substr(2, 9)}`,
+        username: leadData.name.toLowerCase().replace(' ', '_'),
+        displayName: leadData.name,
+      },
+    });
+
+    // Create some activities
+    await prisma.activity.create({
+      data: {
+        tenantId: tenant.id,
+        leadId: lead.id,
+        type: 'LEAD_CREATED',
+        description: `Lead created from ${leadData.platform}`,
+        performedBy: user.id,
+      },
+    });
+  }
+
+  console.log(`✅ Created ${leads.length} leads`);
+
+  // Create deals for some leads
+  const wonStage = pipeline.stages.find((s) => s.name === 'Won');
+  const qualifiedStage = pipeline.stages.find((s) => s.name === 'Qualified');
+
+  const dealsToCreate = [
+    { leadIndex: 0, value: 2999, status: 'won', stageId: wonStage!.id },
+    { leadIndex: 1, value: 1499, status: 'won', stageId: wonStage!.id },
+    { leadIndex: 2, value: 4999, status: 'active', stageId: qualifiedStage!.id },
+    { leadIndex: 3, value: 999, status: 'won', stageId: wonStage!.id },
+    { leadIndex: 5, value: 3499, status: 'active', stageId: qualifiedStage!.id },
+  ];
+
+  for (const dealData of dealsToCreate) {
+    const lead = leads[dealData.leadIndex];
+    const deal = await prisma.deal.create({
+      data: {
+        tenantId: tenant.id,
+        pipelineId: pipeline.id,
+        stageId: dealData.stageId,
+        leadId: lead.id,
+        title: `${lead.name} - Marketing Package`,
+        value: dealData.value,
+        currency: 'USD',
+        expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        assignedToId: user.id,
+        metadata: {
+          fulfillmentStatus: dealData.status === 'won' ? 'pending' : null,
+        },
+      },
+    });
+
+    // Create invoices for won deals
+    if (dealData.status === 'won') {
+      await prisma.invoice.create({
+        data: {
+          tenantId: tenant.id,
+          leadId: lead.id,
+          dealId: deal.id,
+          invoiceNumber: `INV-${String(dealData.leadIndex + 1001).padStart(5, '0')}`,
+          amount: dealData.value,
+          currency: 'USD',
+          status: 'PAID',
+          dueDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+          paidAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+          items: [
+            {
+              description: 'Social Media Marketing Package',
+              quantity: 1,
+              unitPrice: dealData.value,
+              total: dealData.value,
+            },
+          ],
+        },
+      });
+    }
+  }
+
+  console.log(`✅ Created ${dealsToCreate.length} deals with invoices`);
+
+  // Create conversations and messages
+  for (let i = 0; i < 5; i++) {
+    const lead = leads[i];
+    const platformAccount = await prisma.platformAccount.findFirst({
+      where: { leadId: lead.id },
+    });
+
+    const conversation = await prisma.conversation.create({
+      data: {
+        tenantId: tenant.id,
+        leadId: lead.id,
+        platformAccountId: platformAccount!.id,
+        platform: lead.source[0] as any,
+        status: 'OPEN',
+      },
+    });
+
+    // Create messages
+    const messages = [
+      { direction: 'INBOUND', content: 'Hi! I saw your ad on social media. Can you tell me more about your services?', delay: 120 },
+      { direction: 'OUTBOUND', content: `Hi ${lead.name}! 👋 Thanks for reaching out! We offer comprehensive social media marketing services. What are you looking to achieve?`, delay: 180 },
+      { direction: 'INBOUND', content: 'I want to grow my brand on TikTok and Instagram. What are your pricing options?', delay: 240 },
+      { direction: 'OUTBOUND', content: 'Great! Our packages start at $999/month. I can send you a detailed proposal. What\'s your current follower count?', delay: 300 },
+    ];
+
+    for (let j = 0; j < messages.length; j++) {
+      const msg = messages[j];
+      await prisma.message.create({
+        data: {
+          tenantId: tenant.id,
+          conversationId: conversation.id,
+          direction: msg.direction as any,
+          content: msg.content,
+          status: 'DELIVERED',
+          platform: lead.source[0] as any,
+          readAt: msg.direction === 'INBOUND' ? new Date() : null,
+          createdAt: new Date(Date.now() - msg.delay * 60 * 1000),
+        },
+      });
+    }
+  }
+
+  console.log('✅ Created conversations and messages');
+
+  // Create auto-responder integration
+  await prisma.integration.create({
+    data: {
+      tenantId: tenant.id,
+      provider: 'AUTO_RESPONDER',
+      active: true,
+      config: {
+        enabled: true,
+        platforms: ['TIKTOK', 'WHATSAPP', 'FACEBOOK', 'INSTAGRAM', 'LINKEDIN'],
+        responseDelay: 3000,
+        businessHoursOnly: false,
+        customResponses: {
+          pricing: 'Hi {name}! 👋 Our packages start at $999/month. Let me send you detailed pricing for your needs. What\'s your budget?',
+          demo: 'Hi {name}! I\'d love to show you a demo. Are you free this week for a quick 15-min call?',
+        },
+      },
+    },
+  });
+
+  console.log('✅ Created auto-responder integration');
+
+  // Create some automations
+  await prisma.automation.create({
+    data: {
+      tenantId: tenant.id,
+      name: 'Welcome New Leads',
+      description: 'Send welcome message to all new leads',
+      trigger: 'LEAD_CREATED',
+      active: true,
+      actions: {
+        create: [
+          {
+            type: 'SEND_MESSAGE',
+            order: 0,
+            config: {
+              template: 'Welcome {name}! Thanks for your interest. How can we help you today?',
+            },
+          },
+          {
+            type: 'ADD_TAG',
+            order: 1,
+            config: {
+              tags: ['new-lead', 'needs-follow-up'],
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  console.log('✅ Created automations');
+
+  console.log('🎉 Seed completed successfully!');
+  console.log('\n📊 Summary:');
+  console.log(`  - Tenant: ${tenant.name}`);
+  console.log(`  - User: ${user.email} (password: demo123)`);
+  console.log(`  - Leads: ${leads.length}`);
+  console.log(`  - Deals: ${dealsToCreate.length}`);
+  console.log(`  - Conversations: 5`);
+  console.log(`  - Messages: 20`);
+  console.log('\n🚀 Login with:');
+  console.log(`  Email: demo@veltrix.com`);
+  console.log(`  Password: demo123`);
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Seed failed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

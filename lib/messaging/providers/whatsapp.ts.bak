@@ -1,0 +1,266 @@
+// WhatsApp Integration - Provider Agnostic
+// Supports: Meta Business API, Twilio, WATI, or custom providers
+
+import axios, { AxiosInstance } from 'axios'
+// import {LeadSource } from '@prisma/client'
+// import prisma from '../db'
+
+// Local type definition
+type LeadSource = 'TIKTOK' | 'WHATSAPP' | 'INSTAGRAM' | 'FACEBOOK' | 'WEBSITE' | 'OTHER'
+type WhatsAppProvider = 'meta' | 'twilio' | 'wati' | 'custom'
+
+interface WhatsAppConfig {
+  provider: WhatsAppProvider
+  phoneNumberId?: string
+  accessToken?: string
+  accountSid?: string
+  authToken?: string
+  apiEndpoint?: string
+  apiKey?: string
+}
+
+interface WhatsAppMessage {
+  from: string
+  to?: string
+  body: string
+  mediaUrl?: string
+  messageId?: string
+  timestamp?: number
+}
+
+export class WhatsAppClient {
+  private config: WhatsAppConfig
+  private client?: AxiosInstance
+
+  constructor(config: WhatsAppConfig) {
+    this.config = config
+    this.initializeClient()
+  }
+
+  private initializeClient() {
+    switch (this.config.provider) {
+      case 'meta':
+        this.client = axios.create({
+          baseURL: 'https://graph.facebook.com/v18.0',
+          headers: {
+            'Authorization': `Bearer ${this.config.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        break
+
+      case 'twilio':
+        this.client = axios.create({
+          baseURL: 'https://api.twilio.com/2010-04-01',
+          auth: {
+            username: this.config.accountSid || '',
+            password: this.config.authToken || '',
+          },
+        })
+        break
+
+      case 'wati':
+        this.client = axios.create({
+          baseURL: this.config.apiEndpoint || 'https://live-server.wati.io',
+          headers: {
+            'Authorization': `Bearer ${this.config.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        break
+    }
+  }
+
+  // Process incoming WhatsApp message
+  async processIncomingMessage(message: WhatsAppMessage, tenantId: string) {
+    // Normalize phone number
+    const phone = message.from.replace(/[^\d]/g, '')
+
+    // Find or create lead by phone
+    let lead = await prisma.lead.findFirst({
+      where: {
+        tenantId,
+        OR: [
+          { phone },
+          {
+            platformAccounts: {
+              some: {
+                platform: LeadSource.WHATSAPP,
+                platformId: phone,
+              },
+            },
+          },
+        ],
+      },
+    })
+
+    if (!lead) {
+      // Create new lead
+      lead = await prisma.lead.create({
+        data: {
+          fullName: phone, // Will be updated later
+          phone,
+          primarySource: LeadSource.WHATSAPP,
+          sources: [LeadSource.WHATSAPP],
+          tenantId,
+          platformAccounts: {
+            create: {
+              platform: LeadSource.WHATSAPP,
+              platformId: phone,
+            },
+          },
+        },
+      })
+    } else {
+      // Check if WhatsApp source exists
+      const hasWhatsApp = lead.sources.includes(LeadSource.WHATSAPP)
+      if (!hasWhatsApp) {
+        await prisma.lead.update({
+          where: { id: lead.id },
+          data: {
+            sources: [...lead.sources, LeadSource.WHATSAPP],
+          },
+        })
+      }
+    }
+
+    // Get or create conversation
+    let conversation = await prisma.conversation.findFirst({
+      where: {
+        leadId: lead.id,
+        platform: LeadSource.WHATSAPP,
+      },
+    })
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          leadId: lead.id,
+          platform: LeadSource.WHATSAPP,
+          tenantId,
+        },
+      })
+    }
+
+    // Store message
+    const storedMessage = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        direction: 'INBOUND',
+        content: message.body,
+        contentType: message.mediaUrl ? 'image' : 'text',
+        mediaUrl: message.mediaUrl,
+        platform: LeadSource.WHATSAPP,
+        platformMessageId: message.messageId,
+        status: 'DELIVERED',
+      },
+    })
+
+    // Update conversation
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        lastMessage: message.body,
+        lastMessageAt: new Date(message.timestamp ? message.timestamp * 1000 : Date.now()),
+        unreadCount: { increment: 1 },
+      },
+    })
+
+    // Update lead
+    await prisma.lead.update({
+      where: { id: lead.id },
+      data: {
+        lastContactAt: new Date(),
+      },
+    })
+
+    return { lead, conversation, message: storedMessage }
+  }
+
+  // Send WhatsApp message
+  async sendMessage(to: string, content: string, mediaUrl?: string) {
+    try {
+      switch (this.config.provider) {
+        case 'meta':
+          return await this.sendViaMeta(to, content, mediaUrl)
+        case 'twilio':
+          return await this.sendViaTwilio(to, content, mediaUrl)
+        case 'wati':
+          return await this.sendViaWati(to, content, mediaUrl)
+        default:
+          throw new Error(`Unsupported provider: ${this.config.provider}`)
+      }
+    } catch (error: any) {
+      console.error('WhatsApp send error:', error.response?.data || error.message)
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || error.message,
+      }
+    }
+  }
+
+  private async sendViaMeta(to: string, content: string, mediaUrl?: string) {
+    const response = await this.client!.post(`/${this.config.phoneNumberId}/messages`, {
+      messaging_product: 'whatsapp',
+      to,
+      type: mediaUrl ? 'image' : 'text',
+      text: !mediaUrl ? { body: content } : undefined,
+      image: mediaUrl ? { link: mediaUrl, caption: content } : undefined,
+    })
+
+    return {
+      success: true,
+      messageId: response.data.messages[0].id,
+    }
+  }
+
+  private async sendViaTwilio(to: string, content: string, mediaUrl?: string) {
+    const response = await this.client!.post(`/Accounts/${this.config.accountSid}/Messages.json`, {
+      From: `whatsapp:+${this.config.phoneNumberId}`,
+      To: `whatsapp:${to}`,
+      Body: content,
+      MediaUrl: mediaUrl ? [mediaUrl] : undefined,
+    })
+
+    return {
+      success: true,
+      messageId: response.data.sid,
+    }
+  }
+
+  private async sendViaWati(to: string, content: string, mediaUrl?: string) {
+    const response = await this.client!.post('/api/v1/sendSessionMessage', {
+      whatsappNumber: to,
+      text: content,
+      media: mediaUrl ? { url: mediaUrl } : undefined,
+    })
+
+    return {
+      success: true,
+      messageId: response.data.messageId,
+    }
+  }
+
+  // Easy provider switching
+  switchProvider(newProvider: WhatsAppProvider, config: Partial<WhatsAppConfig>) {
+    this.config = { ...this.config, ...config, provider: newProvider }
+    this.initializeClient()
+  }
+}
+
+// Factory function
+export function createWhatsAppClient(config?: Partial<WhatsAppConfig>): WhatsAppClient {
+  const provider = (config?.provider || process.env.WHATSAPP_PROVIDER || 'meta') as WhatsAppProvider
+
+  const finalConfig: WhatsAppConfig = {
+    provider,
+    phoneNumberId: config?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID,
+    accessToken: config?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN,
+    accountSid: config?.accountSid || process.env.TWILIO_ACCOUNT_SID,
+    authToken: config?.authToken || process.env.TWILIO_AUTH_TOKEN,
+    apiEndpoint: config?.apiEndpoint || process.env.WATI_API_ENDPOINT,
+    apiKey: config?.apiKey || process.env.WATI_API_KEY,
+  }
+
+  return new WhatsAppClient(finalConfig)
+}

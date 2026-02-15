@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Test - Veltrix</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: clamp(24px, 5vw, 48px);
+        }
+        .status {
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffeaa7;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        @media (min-width: 640px) {
+            .test-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (min-width: 1024px) {
+            .test-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        .test-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .test-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: clamp(18px, 3vw, 24px);
+        }
+        .test-card p {
+            color: #666;
+            font-size: clamp(14px, 2vw, 16px);
+        }
+        .device-info {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 5px solid #667eea;
+        }
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 10px;
+        }
+        .button:hover {
+            transform: scale(1.05);
+        }
+        .button:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Responsive Design Test</h1>
+        
+        <div id="status" class="status"></div>
+        
+        <div class="device-info">
+            <h3>📱 Current Device Info</h3>
+            <p><strong>Screen Width:</strong> <span id="width"></span>px</p>
+            <p><strong>Device Type:</strong> <span id="device-type"></span></p>
+            <p><strong>Orientation:</strong> <span id="orientation"></span></p>
+        </div>
+
+        <div class="test-grid">
+            <div class="test-card">
+                <h3>📱 Mobile</h3>
+                <p>< 640px</p>
+                <p id="mobile-status">Checking...</p>
+            </div>
+            <div class="test-card">
+                <h3>💻 Tablet</h3>
+                <p>640px - 1024px</p>
+                <p id="tablet-status">Checking...</p>
+            </div>
+            <div class="test-card">
+                <h3>🖥️ Desktop</h3>
+                <p>> 1024px</p>
+                <p id="desktop-status">Checking...</p>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <button class="button" onclick="window.location.reload()">🔄 Refresh Test</button>
+            <button class="button" onclick="openDevTools()">🔧 Open DevTools</button>
+        </div>
+
+        <div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+            <h3 style="margin-bottom: 15px;">✅ What to Check:</h3>
+            <ul style="line-height: 2; color: #555;">
+                <li>Grid layout changes at different screen widths</li>
+                <li>Text size adjusts responsively</li>
+                <li>Cards stack on mobile (1 column)</li>
+                <li>Cards show 2 columns on tablet</li>
+                <li>Cards show 3 columns on desktop</li>
+                <li>No horizontal scrolling at any size</li>
+                <li>Touch targets are large enough (mobile)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function updateDeviceInfo() {
+            const width = window.innerWidth;
+            const status = document.getElementById('status');
+            const widthEl = document.getElementById('width');
+            const deviceTypeEl = document.getElementById('device-type');
+            const orientationEl = document.getElementById('orientation');
+            
+            widthEl.textContent = width;
+            orientationEl.textContent = window.innerWidth > window.innerHeight ? 'Landscape' : 'Portrait';
+            
+            // Determine device type
+            let deviceType = '';
+            let statusClass = '';
+            let statusMessage = '';
+            
+            if (width < 640) {
+                deviceType = '📱 Mobile';
+                document.getElementById('mobile-status').innerHTML = '✅ <strong>ACTIVE</strong>';
+                document.getElementById('tablet-status').innerHTML = '⚪ Inactive';
+                document.getElementById('desktop-status').innerHTML = '⚪ Inactive';
+                statusClass = 'success';
+                statusMessage = '✅ Mobile Layout Active - Single column display';
+            } else if (width >= 640 && width < 1024) {
+                deviceType = '💻 Tablet';
+                document.getElementById('mobile-status').innerHTML = '⚪ Inactive';
+                document.getElementById('tablet-status').innerHTML = '✅ <strong>ACTIVE</strong>';
+                document.getElementById('desktop-status').innerHTML = '⚪ Inactive';
+                statusClass = 'success';
+                statusMessage = '✅ Tablet Layout Active - Two column display';
+            } else {
+                deviceType = '🖥️ Desktop';
+                document.getElementById('mobile-status').innerHTML = '⚪ Inactive';
+                document.getElementById('tablet-status').innerHTML = '⚪ Inactive';
+                document.getElementById('desktop-status').innerHTML = '✅ <strong>ACTIVE</strong>';
+                statusClass = 'success';
+                statusMessage = '✅ Desktop Layout Active - Three column display';
+            }
+            
+            deviceTypeEl.textContent = deviceType;
+            status.className = `status ${statusClass}`;
+            status.textContent = statusMessage;
+        }
+        
+        function openDevTools() {
+            alert('Press F12 or Ctrl+Shift+I to open DevTools.\n\nThen click the Device Toolbar icon (📱) or press Ctrl+Shift+M to test different screen sizes.');
+        }
+        
+        // Update on load
+        updateDeviceInfo();
+        
+        // Update on resize
+        let resizeTimer;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(updateDeviceInfo, 100);
+        });
+    </script>
+</body>
+</html>

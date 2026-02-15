@@ -1,0 +1,294 @@
+// TikTok Integration
+// First-class support for TikTok Lead Forms and Direct Messages
+
+import axios, { AxiosInstance } from 'axios'
+// import { LeadSource } from '@prisma/client'
+// import prisma from '../db'
+
+// Local type definition
+type LeadSource = 'TIKTOK' | 'WHATSAPP' | 'INSTAGRAM' | 'FACEBOOK' | 'WEBSITE' | 'OTHER'
+
+interface TikTokConfig {
+  appId: string
+  appSecret: string
+  accessToken: string
+}
+
+interface TikTokLeadFormData {
+  lead_id: string
+  user_id: string
+  form_id: string
+  submitted_at: number
+  fields: {
+    field_id: string
+    field_name: string
+    field_value: string
+  }[]
+}
+
+interface TikTokMessage {
+  message_id: string
+  conversation_id: string
+  sender_id: string
+  recipient_id: string
+  content: string
+  content_type: 'text' | 'image' | 'video'
+  media_url?: string
+  created_at: number
+}
+
+export class TikTokClient {
+  private client: AxiosInstance
+  private config: TikTokConfig
+
+  constructor(config: TikTokConfig) {
+    this.config = config
+    this.client = axios.create({
+      baseURL: 'https://business-api.tiktok.com/open_api/v1.3',
+      headers: {
+        'Access-Token': config.accessToken,
+        'Content-Type': 'application/json',
+      },
+    })
+  }
+
+  // Process incoming lead form submission
+  async processLeadForm(data: TikTokLeadFormData, tenantId: string) {
+    // Extract fields
+    const fields = data.fields.reduce((acc, field) => {
+      acc[field.field_name.toLowerCase()] = field.field_value
+      return acc
+    }, {} as Record<string, string>)
+
+    // Get or create lead
+    let lead = await prisma.lead.findFirst({
+      where: {
+        tenantId,
+        platformAccounts: {
+          some: {
+            platform: LeadSource.TIKTOK,
+            platformId: data.user_id,
+          },
+        },
+      },
+      include: {
+        platformAccounts: true,
+      },
+    })
+
+    if (!lead) {
+      // Create new lead
+      lead = await prisma.lead.create({
+        data: {
+          fullName: fields.name || fields.full_name || 'TikTok User',
+          email: fields.email || null,
+          phone: fields.phone || fields.phone_number || null,
+          primarySource: LeadSource.TIKTOK,
+          sources: [LeadSource.TIKTOK],
+          tenantId,
+          customFields: fields,
+          platformAccounts: {
+            create: {
+              platform: LeadSource.TIKTOK,
+              platformId: data.user_id,
+              metadata: {
+                leadId: data.lead_id,
+                formId: data.form_id,
+                submittedAt: data.submitted_at,
+              },
+            },
+          },
+        },
+        include: {
+          platformAccounts: true,
+        },
+      })
+    } else {
+      // Update existing lead - merge sources
+      const sources = Array.from(new Set([...lead.sources, LeadSource.TIKTOK]))
+      
+      lead = await prisma.lead.update({
+        where: { id: lead.id },
+        data: {
+          sources,
+          lastContactAt: new Date(),
+          customFields: {
+            ...(lead.customFields as object),
+            ...fields,
+          },
+        },
+        include: {
+          platformAccounts: true,
+        },
+      })
+    }
+
+    // Log activity
+    await prisma.activity.create({
+      data: {
+        type: 'MESSAGE',
+        title: 'TikTok Lead Form Submitted',
+        description: `Lead form submitted with fields: ${Object.keys(fields).join(', ')}`,
+        leadId: lead.id,
+        metadata: { formData: data },
+      },
+    })
+
+    return lead
+  }
+
+  // Process incoming DM
+  async processDirectMessage(message: TikTokMessage, tenantId: string) {
+    // Find or create lead
+    let lead = await prisma.lead.findFirst({
+      where: {
+        tenantId,
+        platformAccounts: {
+          some: {
+            platform: LeadSource.TIKTOK,
+            platformId: message.sender_id,
+          },
+        },
+      },
+    })
+
+    if (!lead) {
+      // Create new lead from DM
+      lead = await prisma.lead.create({
+        data: {
+          fullName: 'TikTok User',
+          primarySource: LeadSource.TIKTOK,
+          sources: [LeadSource.TIKTOK],
+          tenantId,
+          platformAccounts: {
+            create: {
+              platform: LeadSource.TIKTOK,
+              platformId: message.sender_id,
+            },
+          },
+        },
+      })
+    }
+
+    // Get or create conversation
+    let conversation = await prisma.conversation.findFirst({
+      where: {
+        leadId: lead.id,
+        platform: LeadSource.TIKTOK,
+      },
+    })
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          leadId: lead.id,
+          platform: LeadSource.TIKTOK,
+          tenantId,
+          metadata: {
+            conversationId: message.conversation_id,
+          },
+        },
+      })
+    }
+
+    // Store message
+    const storedMessage = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        direction: 'INBOUND',
+        content: message.content,
+        contentType: message.content_type,
+        mediaUrl: message.media_url,
+        platform: LeadSource.TIKTOK,
+        platformMessageId: message.message_id,
+        status: 'DELIVERED',
+      },
+    })
+
+    // Update conversation
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        lastMessage: message.content,
+        lastMessageAt: new Date(message.created_at * 1000),
+        unreadCount: { increment: 1 },
+      },
+    })
+
+    // Update lead
+    await prisma.lead.update({
+      where: { id: lead.id },
+      data: {
+        lastContactAt: new Date(),
+      },
+    })
+
+    return { lead, conversation, message: storedMessage }
+  }
+
+  // Send DM to user
+  async sendDirectMessage(recipientId: string, content: string, contentType: 'text' | 'image' = 'text', mediaUrl?: string) {
+    try {
+      const response = await this.client.post('/message/send/', {
+        recipient_id: recipientId,
+        message: {
+          text: contentType === 'text' ? content : undefined,
+          attachment: contentType === 'image' && mediaUrl ? {
+            type: 'image',
+            payload: { url: mediaUrl },
+          } : undefined,
+        },
+      })
+
+      return {
+        success: true,
+        messageId: response.data.message_id,
+      }
+    } catch (error: any) {
+      console.error('TikTok send message error:', error.response?.data || error.message)
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+      }
+    }
+  }
+
+  // Get user profile
+  async getUserProfile(userId: string) {
+    try {
+      const response = await this.client.get(`/user/info/`, {
+        params: { user_id: userId },
+      })
+
+      return response.data.data
+    } catch (error: any) {
+      console.error('TikTok get user error:', error.response?.data || error.message)
+      return null
+    }
+  }
+
+  // Verify webhook signature
+  static verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
+    const crypto = require('crypto')
+    const hmac = crypto.createHmac('sha256', secret)
+    hmac.update(payload)
+    const expectedSignature = hmac.digest('hex')
+    
+    return signature === expectedSignature
+  }
+}
+
+// Factory function
+export function createTikTokClient(config?: Partial<TikTokConfig>): TikTokClient {
+  const finalConfig: TikTokConfig = {
+    appId: config?.appId || process.env.TIKTOK_APP_ID || '',
+    appSecret: config?.appSecret || process.env.TIKTOK_APP_SECRET || '',
+    accessToken: config?.accessToken || process.env.TIKTOK_ACCESS_TOKEN || '',
+  }
+
+  if (!finalConfig.appId || !finalConfig.accessToken) {
+    throw new Error('TikTok configuration is incomplete')
+  }
+
+  return new TikTokClient(finalConfig)
+}
