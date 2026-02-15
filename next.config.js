@@ -2,10 +2,7 @@
 const nextConfig = {
   // 🚀 DEPLOYMENT CONFIGURATION
   // For static export deployment to Host Africa, uncomment these lines:
-  // For static export deployment to Host Africa, uncomment this to export a fully static site.
-  // Note: API routes and server-only pages are incompatible with `output: 'export'`.
-  // Disabled for Vercel/server builds so API routes work correctly.
-  // output: 'export',
+  // (Intentionally no `output` set here — server/API routes are enabled.)
   // basePath: '/demo', // Uncomment this for subdirectory deployment (e.g., '/veltrix')
   trailingSlash: true,
   

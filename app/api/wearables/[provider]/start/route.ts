@@ -3,6 +3,14 @@ import crypto from 'crypto';
 
 type Provider = 'fitbit' | 'oura' | 'whoop';
 
+export async function generateStaticParams() {
+  return [
+    { provider: 'fitbit' },
+    { provider: 'oura' },
+    { provider: 'whoop' },
+  ];
+}
+
 function base64UrlEncode(input: Buffer | string) {
   const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input);
   return buffer

@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 
 type Provider = 'fitbit' | 'oura' | 'whoop';
 
+export async function generateStaticParams() {
+  return [
+    { provider: 'fitbit' },
+    { provider: 'oura' },
+    { provider: 'whoop' },
+  ];
+}
+
 function form(values: Record<string, string>) {
   const payload = new URLSearchParams();
   Object.entries(values).forEach(([key, value]) => payload.set(key, value));

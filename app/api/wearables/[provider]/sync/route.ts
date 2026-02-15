@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 
 type Provider = 'fitbit' | 'oura' | 'whoop';
 
+export async function generateStaticParams() {
+  return [
+    { provider: 'fitbit' },
+    { provider: 'oura' },
+    { provider: 'whoop' },
+  ];
+}
+
 function asNumber(value: any, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;

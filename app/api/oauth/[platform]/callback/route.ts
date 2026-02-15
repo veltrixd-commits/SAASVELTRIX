@@ -4,6 +4,10 @@ type Platform = 'tiktok' | 'instagram' | 'facebook' | 'whatsapp' | 'linkedin' | 
 
 const SUPPORTED: Platform[] = ['tiktok', 'instagram', 'facebook', 'whatsapp', 'linkedin', 'twitter'];
 
+export async function generateStaticParams() {
+  return SUPPORTED.map(platform => ({ platform }));
+}
+
 function jsonToFormData(values: Record<string, string>) {
   const form = new URLSearchParams();
   Object.entries(values).forEach(([key, value]) => form.set(key, value));

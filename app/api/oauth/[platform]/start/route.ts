@@ -5,6 +5,10 @@ type Platform = 'tiktok' | 'instagram' | 'facebook' | 'whatsapp' | 'linkedin' | 
 
 const SUPPORTED: Platform[] = ['tiktok', 'instagram', 'facebook', 'whatsapp', 'linkedin', 'twitter'];
 
+export async function generateStaticParams() {
+  return SUPPORTED.map(platform => ({ platform }));
+}
+
 function base64UrlEncode(input: Buffer | string) {
   const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input);
   return buffer
