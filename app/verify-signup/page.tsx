@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, Loader2, MailWarning } from 'lucide-react';
 import {
@@ -36,7 +36,7 @@ type VerifiedSignupPayload = {
   deviceId: string;
 };
 
-export default function VerifySignupPage() {
+function VerifySignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
@@ -290,5 +290,23 @@ export default function VerifySignupPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VerifySignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 sm:p-6">
+          <div className="w-full max-w-lg glass-card rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center">
+            <Loader2 className="w-12 h-12 mx-auto mb-4 text-blue-600 animate-spin" />
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Preparing verification...</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Loading your verification details.</p>
+          </div>
+        </div>
+      }
+    >
+      <VerifySignupContent />
+    </Suspense>
   );
 }
