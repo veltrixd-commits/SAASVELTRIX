@@ -7,6 +7,18 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, ShoppingCart, Tag, Package, ShieldCheck, Zap, DollarSign } from 'lucide-react';
 import type { CommerceProduct } from '@/lib/commerceData';
 
+export async function generateStaticParams() {
+  // Generate params for common product IDs
+  // In production, fetch from your data source
+  return [
+    { id: '1' },
+    { id: '2' },
+    { id: '3' },
+    { id: '4' },
+    { id: '5' },
+  ];
+}
+
 export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
