@@ -31,10 +31,10 @@ export default function SignUpPage() {
     rememberDevice: false
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [socialSubmitting, setSocialSubmitting] = useState<'google' | 'apple' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationSentTo, setVerificationSentTo] = useState<string | null>(null);
   const [pendingVerificationPayload, setPendingVerificationPayload] = useState<PendingSignupVerification | null>(null);
+  const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
 
   useEffect(() => {
     migrateLegacyUserIfNeeded();
@@ -58,8 +58,9 @@ export default function SignUpPage() {
     }
   };
 
-  const validateForm = () => {
+  const validateForm = (options?: { requirePassword?: boolean }) => {
     const newErrors: Record<string, string> = {};
+    const requirePassword = options?.requirePassword !== false;
 
     if (!userType) {
       newErrors.userType = 'Please select your user type';
@@ -75,14 +76,16 @@ export default function SignUpPage() {
       newErrors.email = 'Please enter a valid email';
     }
 
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
-    }
+    if (requirePassword) {
+      if (!formData.password) {
+        newErrors.password = 'Password is required';
+      } else if (formData.password.length < 8) {
+        newErrors.password = 'Password must be at least 8 characters';
+      }
 
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = 'Passwords do not match';
+      }
     }
 
     // Conditional validation based on user type
@@ -211,102 +214,65 @@ export default function SignUpPage() {
     }
   };
 
-  const validateSocialSignup = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!userType) {
-      newErrors.userType = 'Please select your user type first';
+  const handleSocialSignup = async (provider: 'google' | 'apple') => {
+    if (!validateForm({ requirePassword: false })) {
+      return;
     }
 
-    if (!formData.agreeToTerms) {
-      newErrors.agreeToTerms = 'You must agree to the terms and conditions';
-    }
+    const deviceId = generateDeviceFingerprint();
 
-    if (userType === 'business' && !formData.businessName.trim()) {
-      newErrors.businessName = 'Business name is required';
-    }
+    if (selectedPlan === 'Free Trial' || !selectedPlan) {
+      if (checkDeviceRegistered(deviceId)) {
+        setErrors({ general: 'This device has already been used to create a trial account. Please upgrade to a paid plan or contact support.' });
+        return;
+      }
 
-    if (userType === 'creator' && !formData.contentNiche.trim()) {
-      newErrors.contentNiche = 'Content niche is required';
-    }
-
-    if (userType === 'employee') {
-      if (!formData.employerCode.trim()) {
-        newErrors.employerCode = 'Employer code is required for employee signup';
-      } else if (!validateEmployerCode(formData.employerCode)) {
-        newErrors.employerCode = 'Invalid employer code or company subscription expired';
+      if (checkEmailRegistered(formData.email)) {
+        setErrors({ email: 'This email has already been used to create a trial account.' });
+        return;
       }
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSocialSignup = async (provider: 'google' | 'apple') => {
-    if (!validateSocialSignup()) return;
-
-    const socialEmail = window.prompt(
-      provider === 'google'
-        ? 'Enter your Gmail address to continue'
-        : 'Enter your Apple Mail address to continue'
-    );
-
-    if (!socialEmail) return;
-
-    const normalizedEmail = socialEmail.trim().toLowerCase();
-    const validEmail = /^\S+@\S+\.\S+$/.test(normalizedEmail);
-    if (!validEmail) {
-      setErrors({ email: 'Please enter a valid email address.' });
-      return;
-    }
-
-    if (provider === 'google' && !normalizedEmail.endsWith('@gmail.com')) {
-      setErrors({ email: 'Google signup requires a Gmail address.' });
-      return;
-    }
-
-    const appleDomains = ['@icloud.com', '@me.com', '@mac.com', '@privaterelay.appleid.com'];
-    if (provider === 'apple' && !appleDomains.some((domain) => normalizedEmail.endsWith(domain))) {
-      setErrors({ email: 'Apple signup requires an Apple Mail address.' });
-      return;
-    }
-
-    const fullName = formData.fullName.trim() || window.prompt('Enter your full name') || '';
-    if (!fullName.trim()) {
-      setErrors({ fullName: 'Full name is required for social signup.' });
-      return;
-    }
-
-    setSocialSubmitting(provider);
+    setSocialLoading(provider);
     setErrors({});
 
     try {
       const normalizedPlan = normalizePlan(selectedPlan || 'Free Trial');
-
-      const verificationPayload: PendingSignupVerification = {
-        fullName: fullName.trim(),
-        email: normalizedEmail,
-        userType: (userType || 'individual') as UserType,
+      const userContext = {
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim().toLowerCase(),
+        userType: userType as UserType,
         businessName: userType === 'business' ? formData.businessName.trim() : undefined,
         employerCode: userType === 'employee' ? formData.employerCode.trim() : undefined,
         contentNiche: userType === 'creator' ? formData.contentNiche.trim() : undefined,
         plan: selectedPlan || 'Free Trial',
         planType: normalizedPlan,
-        provider,
-        deviceId: generateDeviceFingerprint(),
         requestedAt: new Date().toISOString(),
-        rememberDevice: formData.rememberDevice,
       };
 
-      await sendSignupVerificationEmail(verificationPayload as unknown as Record<string, unknown>);
-      savePendingSignupVerification(verificationPayload);
-      setPendingVerificationPayload(verificationPayload);
+      const response = await fetch('/api/auth/oauth/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          provider,
+          mode: 'signup',
+          userContext,
+          deviceId,
+          rememberDevice: formData.rememberDevice,
+        }),
+      });
 
-      setVerificationSentTo(normalizedEmail);
+      const data = await response.json();
+      if (!response.ok || !data?.authorizationUrl) {
+        throw new Error(data?.message || 'Unable to connect with the provider.');
+      }
+
+      window.location.href = data.authorizationUrl;
     } catch (error) {
-      setErrors({ general: error instanceof Error ? error.message : 'Failed to send verification email.' });
-    } finally {
-      setSocialSubmitting(null);
+      setErrors({ general: error instanceof Error ? error.message : 'Social signup failed. Please try again.' });
+      setSocialLoading(null);
     }
   };
 
@@ -637,7 +603,7 @@ export default function SignUpPage() {
               <button
                 type="button"
                 onClick={handleResendVerification}
-                disabled={isSubmitting || socialSubmitting !== null}
+                disabled={isSubmitting}
                 className="mt-3 w-full sm:w-auto px-4 py-2 text-sm font-semibold text-green-800 dark:text-green-200 border border-green-600 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 disabled:opacity-60"
               >
                 {isSubmitting ? 'Resending...' : 'Resend verification email'}
@@ -648,7 +614,7 @@ export default function SignUpPage() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isSubmitting || socialSubmitting !== null}
+            disabled={isSubmitting}
             className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-2xl"
           >
             {isSubmitting ? 'Sending Verification...' : 'Create Account'}
@@ -667,18 +633,43 @@ export default function SignUpPage() {
             <button
               type="button"
               onClick={() => handleSocialSignup('google')}
-              disabled={socialSubmitting !== null}
-              className="w-full py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
+              disabled={Boolean(socialLoading) || isSubmitting}
+              className="w-full inline-flex items-center justify-center gap-2 py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
             >
-              {socialSubmitting === 'google' ? 'Connecting...' : 'Continue with Google'}
+              {socialLoading === 'google' ? (
+                <span>Connecting...</span>
+              ) : (
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4">
+                      <path d="M23.49 12.27c0-.82-.07-1.64-.21-2.44H12v4.63h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.54-5.17 3.54-8.82Z" fill="#4285F4" />
+                      <path d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3a7.08 7.08 0 0 1-10.54-3.72H1.49v3.12A12 12 0 0 0 12 24Z" fill="#34A853" />
+                      <path d="M5.53 14.37a7.22 7.22 0 0 1 0-4.72V6.53H1.49a12 12 0 0 0 0 10.94l4.04-3.1Z" fill="#FBBC05" />
+                      <path d="M12 4.75c1.76 0 3.36.61 4.62 1.8l3.45-3.45A12 12 0 0 0 1.49 6.53l4.04 3.12A7.08 7.08 0 0 1 12 4.75Z" fill="#EA4335" />
+                    </svg>
+                  </span>
+                  <span>Sign up with Gmail</span>
+                </span>
+              )}
             </button>
             <button
               type="button"
               onClick={() => handleSocialSignup('apple')}
-              disabled={socialSubmitting !== null}
-              className="w-full py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
+              disabled={Boolean(socialLoading) || isSubmitting}
+              className="w-full inline-flex items-center justify-center gap-2 py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
             >
-              {socialSubmitting === 'apple' ? 'Connecting...' : 'Continue with Apple'}
+              {socialLoading === 'apple' ? (
+                <span>Connecting...</span>
+              ) : (
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-6 h-6 text-gray-900 dark:text-white">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                      <path d="M16.44 1.99c0 1.14-.42 2.06-1.24 2.86-.92.9-1.99 1.43-3.18 1.34-.05-1.08.37-2.02 1.23-2.82.9-.86 1.99-1.36 3.19-1.38zM21 17.52c-.37.86-.8 1.66-1.3 2.41-.69 1.02-1.25 1.73-1.69 2.11-.7.65-1.45.99-2.27 1h-.02c-.57 0-1.26-.16-2.08-.49-.82-.33-1.58-.49-2.27-.49-.74 0-1.55.16-2.44.49-.89.33-1.6.5-2.12.52h-.19c-.77-.03-1.5-.35-2.2-.97-.47-.4-1.05-1.12-1.73-2.16-.74-1.11-1.35-2.4-1.82-3.86-.5-1.58-.75-3.1-.75-4.55 0-1.68.36-3.14 1.08-4.38a5.75 5.75 0 0 1 2.06-2.11A5.38 5.38 0 0 1 6.86 4c.66 0 1.52.19 2.56.55 1.03.36 1.7.55 2 .55.18 0 .83-.2 1.95-.59 1.04-.34 1.93-.49 2.68-.44 1.98.16 3.48.94 4.5 2.36a5 5 0 0 0-2.63 4.39c0 1.46.56 2.67 1.69 3.62-.1.29-.22.58-.34.88z" />
+                    </svg>
+                  </span>
+                  <span>Continue with Apple</span>
+                </span>
+              )}
             </button>
           </div>
 

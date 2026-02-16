@@ -1,14 +1,13 @@
 // Login Page
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { generateDeviceFingerprint } from '@/lib/deviceFingerprint';
 import type { AccountUser } from '@/lib/auth';
 import {
   authenticate,
-  authenticateSocial,
   findUserByTrustedDevice,
   getPostLoginRoute,
   migrateLegacyUserIfNeeded,
@@ -16,8 +15,9 @@ import {
   setCurrentUser,
 } from '@/lib/auth';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -89,44 +89,42 @@ export default function LoginPage() {
     router.push(getPostLoginRoute(authenticatedUser));
   };
 
-  const handleSocialLogin = (provider: 'google' | 'apple') => {
-    const email = window.prompt(
-      provider === 'google'
-        ? 'Enter your Gmail address'
-        : 'Enter your Apple Mail address'
-    );
+  const handleSocialLogin = async (provider: 'google' | 'apple') => {
+    try {
+      setSocialLoading(provider);
+      setError('');
 
-    if (!email) return;
-    const normalizedEmail = email.trim().toLowerCase();
+      const fingerprint = deviceFingerprint || (() => {
+        const nextFingerprint = generateDeviceFingerprint();
+        setDeviceFingerprint(nextFingerprint);
+        return nextFingerprint;
+      })();
 
-    setSocialLoading(provider);
-    setError('');
+      const response = await fetch('/api/auth/oauth/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          provider,
+          mode: 'login',
+          deviceId: fingerprint,
+          rememberDevice: true,
+          redirectTo: searchParams.get('redirectTo') || undefined,
+        }),
+      });
 
-    const result = authenticateSocial(normalizedEmail, provider);
-    if (!result.ok || !result.user) {
-      setError(result.error || 'Social login failed.');
-      setSocialLoading(null);
-      return;
-    }
-
-    const fingerprint = deviceFingerprint || (() => {
-      const nextFingerprint = generateDeviceFingerprint();
-      setDeviceFingerprint(nextFingerprint);
-      return nextFingerprint;
-    })();
-
-    let authenticatedUser = result.user;
-    if (fingerprint) {
-      const updated = rememberDeviceForUser(result.user.id, fingerprint);
-      if (updated) {
-        authenticatedUser = updated;
+      const data = await response.json();
+      if (!response.ok || !data?.authorizationUrl) {
+        throw new Error(data?.message || 'Unable to connect with the provider.');
       }
-    }
 
-    setCurrentUser({ ...authenticatedUser, rememberMe: true });
-    setTrustedSession(null);
-    router.push(getPostLoginRoute(authenticatedUser));
-    setSocialLoading(null);
+      window.location.href = data.authorizationUrl;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Social login failed. Please try again.';
+      setError(message);
+      setSocialLoading(null);
+    }
   };
 
   const handleTrustedContinue = () => {
@@ -300,5 +298,24 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="w-full max-w-md glass-card rounded-xl p-6 text-center space-y-3">
+        <p className="text-lg font-semibold text-gray-900 dark:text-white">Loading sign-in...</p>
+        <p className="text-sm text-gray-600 dark:text-gray-300">Preparing secure login options.</p>
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

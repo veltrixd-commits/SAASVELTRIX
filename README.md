@@ -131,6 +131,33 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ---
 
+## 🔐 Google & Apple OAuth Setup
+
+Enable one-click signup/login by wiring Google and Apple credentials:
+
+### Google
+1. Create an **OAuth 2.0 Client ID** in the Google Cloud console (type: Web application).
+2. Add `http://localhost:3000/api/auth/oauth/google/callback` (dev) and your production domain to the authorized redirect URIs.
+3. Copy the client ID/secret into `.env`:
+  - `GOOGLE_OAUTH_CLIENT_ID`
+  - `GOOGLE_OAUTH_CLIENT_SECRET`
+  - `GOOGLE_OAUTH_REDIRECT_URI` (optional override)
+
+### Apple
+1. Inside Apple Developer > **Certificates, Identifiers & Profiles**, create a **Service ID** for “Sign in with Apple”.
+2. Generate a private key (ES256) and note the **Team ID** and **Key ID**.
+3. Set the callback URL to `http://localhost:3000/api/auth/oauth/apple/callback` (and your production URL).
+4. Populate `.env` with:
+  - `APPLE_OAUTH_CLIENT_ID` (Service ID / Bundle ID)
+  - `APPLE_OAUTH_TEAM_ID`
+  - `APPLE_OAUTH_KEY_ID`
+  - `APPLE_OAUTH_PRIVATE_KEY` (PEM text, newline escaped)
+  - `APPLE_OAUTH_REDIRECT_URI` (optional override)
+
+After saving the environment variables, restart `npm run dev`. The login/signup pages will now launch `/api/auth/oauth/start`, handle provider callbacks, and return users through `/oauth/complete` which links into the existing local account store.
+
+---
+
 ## 📁 Project Structure
 
 ```

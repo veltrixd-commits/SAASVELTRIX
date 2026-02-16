@@ -23,6 +23,9 @@ function readStoredArray<T = any>(key: string): T[] {
 
 export default function DashboardPage() {
   const router = useRouter();
+  if (typeof window === 'undefined') {
+    return null;
+  }
   const [showTourBanner, setShowTourBanner] = useState(false);
   const [showAutopilotBanner, setShowAutopilotBanner] = useState(true);
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);

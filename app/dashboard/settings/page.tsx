@@ -17,6 +17,9 @@ import {
 } from '@/lib/companyRegistry';
 
 export default function SettingsPage() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
   const [activeTab, setActiveTab] = useState<'profile' | 'business' | 'notifications' | 'integrations' | 'privacy' | 'billing' | 'security' | 'advanced'>('profile');
   const [userData, setUserData] = useState<any>(null);
   const [settings, setSettings] = useState({
