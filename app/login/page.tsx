@@ -1,10 +1,20 @@
 // Login Page
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { authenticate, authenticateSocial, setCurrentUser, migrateLegacyUserIfNeeded, getPostLoginRoute } from '@/lib/auth';
+import { generateDeviceFingerprint } from '@/lib/deviceFingerprint';
+import type { AccountUser } from '@/lib/auth';
+import {
+  authenticate,
+  authenticateSocial,
+  findUserByTrustedDevice,
+  getPostLoginRoute,
+  migrateLegacyUserIfNeeded,
+  rememberDeviceForUser,
+  setCurrentUser,
+} from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,6 +26,23 @@ export default function LoginPage() {
   });
   const [error, setError] = useState('');
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
+  const [deviceFingerprint, setDeviceFingerprint] = useState<string | null>(null);
+  const [trustedSession, setTrustedSession] = useState<{ user: AccountUser; deviceId: string } | null>(null);
+
+  useEffect(() => {
+    migrateLegacyUserIfNeeded();
+
+    try {
+      const fingerprint = generateDeviceFingerprint();
+      setDeviceFingerprint(fingerprint);
+      const rememberedUser = findUserByTrustedDevice(fingerprint);
+      if (rememberedUser) {
+        setTrustedSession({ user: rememberedUser, deviceId: fingerprint });
+      }
+    } catch (err) {
+      console.warn('Device fingerprint unavailable', err);
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -28,8 +55,6 @@ export default function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    migrateLegacyUserIfNeeded();
     
     if (!formData.email || !formData.password) {
       setError('Please enter both email and password');
@@ -42,9 +67,26 @@ export default function LoginPage() {
       return;
     }
 
-    setCurrentUser({ ...result.user, rememberMe: formData.rememberMe });
+    let authenticatedUser = result.user;
+    const fingerprint = formData.rememberMe
+      ? deviceFingerprint || (() => {
+          const nextFingerprint = generateDeviceFingerprint();
+          setDeviceFingerprint(nextFingerprint);
+          return nextFingerprint;
+        })()
+      : null;
 
-    router.push(getPostLoginRoute(result.user));
+    if (formData.rememberMe && fingerprint) {
+      const updated = rememberDeviceForUser(authenticatedUser.id, fingerprint);
+      if (updated) {
+        authenticatedUser = updated;
+      }
+    }
+
+    setCurrentUser({ ...authenticatedUser, rememberMe: formData.rememberMe });
+    setTrustedSession(null);
+
+    router.push(getPostLoginRoute(authenticatedUser));
   };
 
   const handleSocialLogin = (provider: 'google' | 'apple') => {
@@ -67,9 +109,31 @@ export default function LoginPage() {
       return;
     }
 
-    setCurrentUser({ ...result.user, rememberMe: true });
-    router.push(getPostLoginRoute(result.user));
+    const fingerprint = deviceFingerprint || (() => {
+      const nextFingerprint = generateDeviceFingerprint();
+      setDeviceFingerprint(nextFingerprint);
+      return nextFingerprint;
+    })();
+
+    let authenticatedUser = result.user;
+    if (fingerprint) {
+      const updated = rememberDeviceForUser(result.user.id, fingerprint);
+      if (updated) {
+        authenticatedUser = updated;
+      }
+    }
+
+    setCurrentUser({ ...authenticatedUser, rememberMe: true });
+    setTrustedSession(null);
+    router.push(getPostLoginRoute(authenticatedUser));
     setSocialLoading(null);
+  };
+
+  const handleTrustedContinue = () => {
+    if (!trustedSession) return;
+    const refreshed = rememberDeviceForUser(trustedSession.user.id, trustedSession.deviceId) || trustedSession.user;
+    setCurrentUser({ ...refreshed, rememberMe: true });
+    router.push(getPostLoginRoute(refreshed));
   };
 
   return (
@@ -84,6 +148,30 @@ export default function LoginPage() {
             Log in to your Veltrix account
           </p>
         </div>
+
+        {trustedSession && (
+          <div className="glass-card rounded-xl sm:rounded-2xl p-4 sm:p-5 mb-6 border border-blue-200 dark:border-blue-900/40 bg-white/70 dark:bg-gray-900/60">
+            <p className="text-sm text-gray-700 dark:text-gray-200">
+              We recognize this device as <span className="font-semibold">{trustedSession.user.fullName}</span>. Skip the sign-in form and jump back into your workspace.
+            </p>
+            <div className="mt-4 flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={handleTrustedContinue}
+                className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:scale-105 transition-all"
+              >
+                Go to dashboard
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrustedSession(null)}
+                className="flex-1 py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Use a different account
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="glass-card rounded-xl sm:rounded-2xl p-5 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">

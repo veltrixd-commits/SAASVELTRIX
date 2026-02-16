@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
+import { deliverEmail, getEmailTransportState } from '@/lib/emailTransport';
 
 type SendDocumentPayload = {
   to: string;
@@ -8,16 +8,6 @@ type SendDocumentPayload = {
   documentType: 'invoice' | 'quotation';
   documentNumber: string;
 };
-
-function getMissingEmailConfig(): string[] {
-  return [
-    !process.env.SMTP_HOST ? 'SMTP_HOST' : null,
-    !process.env.SMTP_PORT ? 'SMTP_PORT' : null,
-    !process.env.SMTP_USER ? 'SMTP_USER' : null,
-    !process.env.SMTP_PASSWORD ? 'SMTP_PASSWORD' : null,
-    !process.env.SMTP_FROM ? 'SMTP_FROM' : null,
-  ].filter(Boolean) as string[];
-}
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -47,30 +37,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const missingConfig = getMissingEmailConfig();
-    if (missingConfig.length > 0) {
+    const emailState = getEmailTransportState();
+    if (!emailState.ready) {
       return NextResponse.json(
         {
           success: false,
           message: 'SMTP is not fully configured.',
-          missingConfig,
+          missingConfig: emailState.missing,
         },
         { status: 503 }
       );
     }
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: Number(process.env.SMTP_PORT) === 465,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      },
-    });
-
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
+    await deliverEmail({
+      from: process.env.SMTP_FROM || 'UniLife <noreply@unilife.local>',
       to: payload.to,
       subject: payload.subject,
       text: payload.body,

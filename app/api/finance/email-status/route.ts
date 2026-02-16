@@ -1,20 +1,16 @@
 import { NextResponse } from 'next/server';
-
-function getMissingEmailConfig(): string[] {
-  return [
-    !process.env.SMTP_HOST ? 'SMTP_HOST' : null,
-    !process.env.SMTP_PORT ? 'SMTP_PORT' : null,
-    !process.env.SMTP_USER ? 'SMTP_USER' : null,
-    !process.env.SMTP_PASSWORD ? 'SMTP_PASSWORD' : null,
-    !process.env.SMTP_FROM ? 'SMTP_FROM' : null,
-  ].filter(Boolean) as string[];
-}
+import { getEmailTransportState } from '@/lib/emailTransport';
 
 export async function GET() {
-  const missing = getMissingEmailConfig();
+  const emailState = getEmailTransportState();
+  const configured = emailState.mode === 'console' || emailState.missing.length === 0;
 
   return NextResponse.json({
-    configured: missing.length === 0,
-    missing,
+    mode: emailState.mode,
+    ready: emailState.ready,
+    configured,
+    missing: emailState.missing,
+    fallback: emailState.fallback,
+    fallbackReason: emailState.fallbackReason,
   });
 }

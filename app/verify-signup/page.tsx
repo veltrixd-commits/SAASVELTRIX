@@ -4,10 +4,12 @@ export const dynamic = 'force-dynamic';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, Loader2, MailWarning } from 'lucide-react';
+import type { AccountUser } from '@/lib/auth';
 import {
   createAccount,
   createOrLoginSocialAccount,
   normalizePlan,
+  rememberDeviceForUser,
   setCurrentUser,
 } from '@/lib/auth';
 import {
@@ -34,6 +36,7 @@ type VerifiedSignupPayload = {
   provider: 'password' | 'google' | 'apple';
   password?: string;
   deviceId: string;
+  rememberDevice?: boolean;
 };
 
 function VerifySignupContent() {
@@ -103,7 +106,7 @@ function VerifySignupContent() {
           };
         }
 
-        let activeUser: any;
+        let activeUser: AccountUser | null = null;
 
         if (signup.provider === 'password') {
           if (!signup.password) {
@@ -161,7 +164,16 @@ function VerifySignupContent() {
           activeUser = socialResult.user;
         }
 
-        setCurrentUser(activeUser);
+        if (activeUser && signup.rememberDevice && signup.deviceId) {
+          const trusted = rememberDeviceForUser(activeUser.id, signup.deviceId);
+          if (trusted) {
+            activeUser = trusted;
+          }
+        }
+
+        if (activeUser) {
+          setCurrentUser(activeUser);
+        }
 
         if (isTrial) {
           registerDevice(signup.deviceId);

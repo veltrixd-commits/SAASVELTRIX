@@ -1,5 +1,11 @@
 export type PlanType = 'free_trial' | 'professional' | 'scale' | 'enterprise';
 
+export type TrustedDevice = {
+  id: string;
+  rememberedAt: string;
+  expiresAt: string;
+};
+
 export interface AccountUser {
   id: string;
   fullName: string;
@@ -40,6 +46,7 @@ export interface AccountUser {
     requestedAt?: string;
     verificationCode?: string;
   };
+  trustedDevices?: TrustedDevice[];
 }
 
 const USERS_KEY = 'veltrix_users';
@@ -47,6 +54,7 @@ const AUTH_KEY = 'isAuthenticated';
 const ACTIVE_USER_KEY = 'userData';
 const ACTIVE_USER_ID_KEY = 'veltrix_active_user_id';
 const SELECTED_PLAN_KEY = 'selectedPlan';
+const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export function normalizePlan(plan?: string): PlanType {
   const value = (plan || '').trim().toLowerCase();
@@ -65,6 +73,16 @@ export function getSelectedPlan(): string {
 export function setSelectedPlan(planLabel: string): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(SELECTED_PLAN_KEY, planLabel);
+}
+
+function filterActiveTrustedDevices(devices?: TrustedDevice[]): TrustedDevice[] {
+  if (!devices || devices.length === 0) return [];
+  const now = Date.now();
+  return devices.filter((device) => {
+    if (!device?.id || !device.expiresAt) return false;
+    const expiresAtMs = new Date(device.expiresAt).getTime();
+    return expiresAtMs > now;
+  });
 }
 
 function readUsers(): AccountUser[] {
@@ -369,4 +387,48 @@ export function migrateLegacyUserIfNeeded(): void {
     writeUsers(users);
   } catch {
   }
+}
+
+export function rememberDeviceForUser(userId: string, deviceId: string): AccountUser | null {
+  if (typeof window === 'undefined') return null;
+  if (!userId || !deviceId) return null;
+
+  const users = readUsers();
+  const target = users.find((user) => user.id === userId);
+  if (!target) return null;
+
+  const activeDevices = filterActiveTrustedDevices(target.trustedDevices);
+  const rememberedAt = new Date();
+  const expiresAt = new Date(rememberedAt.getTime() + TRUSTED_DEVICE_TTL_MS).toISOString();
+
+  const nextDevices = activeDevices.filter((device) => device.id !== deviceId);
+  nextDevices.push({
+    id: deviceId,
+    rememberedAt: rememberedAt.toISOString(),
+    expiresAt,
+  });
+
+  return updateAccount(userId, {
+    trustedDevices: nextDevices,
+    rememberMe: true,
+  });
+}
+
+export function findUserByTrustedDevice(deviceId: string): AccountUser | null {
+  if (typeof window === 'undefined') return null;
+  if (!deviceId) return null;
+
+  const users = readUsers();
+  for (const user of users) {
+    const activeDevices = filterActiveTrustedDevices(user.trustedDevices);
+    if (activeDevices.length !== (user.trustedDevices?.length || 0)) {
+      updateAccount(user.id, { trustedDevices: activeDevices });
+    }
+
+    if (activeDevices.some((device) => device.id === deviceId)) {
+      return { ...user, trustedDevices: activeDevices };
+    }
+  }
+
+  return null;
 }

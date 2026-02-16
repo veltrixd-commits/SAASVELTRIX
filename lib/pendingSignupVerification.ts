@@ -11,6 +11,7 @@ export type PendingSignupVerification = {
   password?: string;
   deviceId: string;
   requestedAt: string;
+  rememberDevice?: boolean;
 };
 
 const PENDING_SIGNUP_KEY = 'veltrix_pending_signup_verification';

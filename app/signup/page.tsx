@@ -27,7 +27,8 @@ export default function SignUpPage() {
     businessName: '',
     employerCode: '',
     contentNiche: '',
-    agreeToTerms: false
+    agreeToTerms: false,
+    rememberDevice: false
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [socialSubmitting, setSocialSubmitting] = useState<'google' | 'apple' | null>(null);
@@ -194,6 +195,7 @@ export default function SignUpPage() {
         password: formData.password,
         deviceId,
         requestedAt: new Date().toISOString(),
+        rememberDevice: formData.rememberDevice,
       };
 
       await sendSignupVerificationEmail(verificationPayload as unknown as Record<string, unknown>);
@@ -293,6 +295,7 @@ export default function SignUpPage() {
         provider,
         deviceId: generateDeviceFingerprint(),
         requestedAt: new Date().toISOString(),
+        rememberDevice: formData.rememberDevice,
       };
 
       await sendSignupVerificationEmail(verificationPayload as unknown as Record<string, unknown>);
@@ -599,6 +602,23 @@ export default function SignUpPage() {
           {errors.agreeToTerms && (
             <p className="text-sm text-red-600 dark:text-red-400">{errors.agreeToTerms}</p>
           )}
+
+          {/* Remember Device */}
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              name="rememberDevice"
+              checked={formData.rememberDevice}
+              onChange={handleChange}
+              className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="font-medium text-gray-900 dark:text-white">Remember this device after verification</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                We'll trust this device for 30 days so you can jump straight to your dashboard on return visits.
+              </p>
+            </div>
+          </div>
 
           {/* General Error Display */}
           {errors.general && (

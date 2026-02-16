@@ -13,6 +13,7 @@ export type SignupVerificationPayload = {
   password?: string;
   deviceId: string;
   requestedAt: string;
+  rememberDevice?: boolean;
 };
 
 type PendingSignupRecord = {
