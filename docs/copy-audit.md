@@ -32,6 +32,11 @@ _Last updated: 2026-02-16_
 | Productivity | Hero, nav tabs, daily orders, wellness block, empty states | Repositions productivity OS as an order deck with action-first CTAs and operator status alerts |
 | Content Studio | Hero, nav tabs, capture/editor/script/calendar/deals copy | Treats studio as a content pipeline with decisive labels and empty states |
 
+## CTA Analytics Coverage (2026-02-16)
+- Dashboard CTAs (quick setup, Autopilot banner, focus zones, outcome playbooks, stat tiles, quick actions) now emit `recordCtaClick()` events with explicit surface IDs.
+- Signal feed, directive tiles (signal/hot leads/pipeline/tutorial), activity feed rows, hot lead tables/cards, tutorial footer CTAs, and modal jump buttons also report clicks so we can trace operator journeys beyond the hero row.
+- Events are stored client-side in `veltrix_cta_events` (max 200). Toggle via `NEXT_PUBLIC_CTA_ANALYTICS_ENABLED` or the per-browser opt-in key; see README for operational notes.
+
 ## Remaining Modules To Sweep
 - Any net-new analytics widgets or dashboards shipped after this sweep
 - Additional studios (podcast, SMS, etc.) as they come online
@@ -41,4 +46,5 @@ _Last updated: 2026-02-16_
 1. Continue spot-auditing new UI as features ship; use this doc as source of truth.
 2. The moment a new analytics widget or studio drops, log it here and run the tone sweep before it launches.
 3. Recheck every modal and empty/loading state added after this audit—rewrite and record them before shipping.
-4. Keep copy changes small and direct—if it feels polite, tighten it.
+ 4. Keep copy changes small and direct—if it feels polite, tighten it.
+ 5. When adding new CTAs, log them in this doc and wire them through `recordCtaClick()` so telemetry coverage stays complete.

@@ -777,11 +777,19 @@ function NotificationSettings({ settings, setSettings }: any) {
 }
 
 // Integrations Settings Tab
-// Integrations Settings Tab
+const UPCOMING_INTEGRATIONS = [
+  { id: 'email-providers', title: '📧 Email Providers', description: 'Gmail, Outlook, SendGrid' },
+  { id: 'ecommerce-providers', title: '🛒 E-commerce', description: 'Shopify, WooCommerce' },
+  { id: 'calendar-providers', title: '📆 Calendars', description: 'Google Calendar, Outlook' },
+  { id: 'payment-providers', title: '💳 Payment', description: 'Stripe, PayPal, Paystack' },
+];
+
 function IntegrationSettings({ settings, setSettings }: any) {
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string>('');
   const [oauthHealth, setOauthHealth] = useState<any>(null);
+  const [integrationWaitlist, setIntegrationWaitlist] = useState<string[]>([]);
+  const [integrationNotice, setIntegrationNotice] = useState('');
 
   useEffect(() => {
     const loadOauthHealth = async () => {
@@ -796,6 +804,30 @@ function IntegrationSettings({ settings, setSettings }: any) {
 
     loadOauthHealth();
   }, []);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('settingsIntegrationWaitlist');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setIntegrationWaitlist(parsed);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load integration waitlist', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('settingsIntegrationWaitlist', JSON.stringify(integrationWaitlist));
+  }, [integrationWaitlist]);
+
+  useEffect(() => {
+    if (!integrationNotice) return;
+    const timeout = window.setTimeout(() => setIntegrationNotice(''), 2500);
+    return () => window.clearTimeout(timeout);
+  }, [integrationNotice]);
 
   const waitForOAuthResult = (platform: string) => {
     return new Promise<any>((resolve, reject) => {
@@ -821,6 +853,20 @@ function IntegrationSettings({ settings, setSettings }: any) {
       };
 
       window.addEventListener('message', handler);
+    });
+  };
+
+  const handleToggleIntegrationInterest = (integrationId: string) => {
+    setIntegrationWaitlist((prev) => {
+      const exists = prev.includes(integrationId);
+      const next = exists ? prev.filter((id) => id !== integrationId) : [...prev, integrationId];
+      const integration = UPCOMING_INTEGRATIONS.find((item) => item.id === integrationId);
+      setIntegrationNotice(
+        exists
+          ? `${integration?.title.replace(/^[^A-Za-z0-9]+/, '') || 'Integration'} removed from waitlist.`
+          : `${integration?.title.replace(/^[^A-Za-z0-9]+/, '') || 'Integration'} request submitted.`
+      );
+      return next;
     });
   };
 
@@ -1035,24 +1081,46 @@ function IntegrationSettings({ settings, setSettings }: any) {
 
       {/* Coming Soon */}
       <div className="glass-card rounded-xl p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">🚀 Coming Soon</h3>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">🚀 Coming Soon</h3>
+            <p className="text-xs text-gray-600 dark:text-gray-400">Tap to reserve a spot as integrations roll out.</p>
+          </div>
+          <span className="text-xs font-semibold uppercase text-purple-700">Waitlist live</span>
+        </div>
+        {integrationNotice && (
+          <div className="mb-4 p-3 rounded-lg bg-white/80 dark:bg-gray-900/40 text-sm font-medium text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700">
+            {integrationNotice}
+          </div>
+        )}
         <div className="grid sm:grid-cols-2 gap-3">
-          <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
-            <p className="font-medium text-gray-900 dark:text-white">📧 Email Providers</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Gmail, Outlook, SendGrid</p>
-          </div>
-          <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
-            <p className="font-medium text-gray-900 dark:text-white">🛒 E-commerce</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Shopify, WooCommerce</p>
-          </div>
-          <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
-            <p className="font-medium text-gray-900 dark:text-white">📆 Calendars</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Google Calendar, Outlook</p>
-          </div>
-          <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
-            <p className="font-medium text-gray-900 dark:text-white">💳 Payment</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Stripe, PayPal, Paystack</p>
-          </div>
+          {UPCOMING_INTEGRATIONS.map((integration) => {
+            const isRequested = integrationWaitlist.includes(integration.id);
+            return (
+              <button
+                key={integration.id}
+                type="button"
+                onClick={() => handleToggleIntegrationInterest(integration.id)}
+                className={`p-4 rounded-lg text-left transition-all border ${
+                  isRequested
+                    ? 'bg-white text-gray-900 border-purple-400 dark:bg-gray-800 dark:text-white'
+                    : 'bg-white/80 text-gray-800 border-transparent dark:bg-gray-800/70 dark:text-gray-100'
+                } hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500`}
+              >
+                <p className="font-semibold mb-1">{integration.title}</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">{integration.description}</p>
+                <span
+                  className={`mt-3 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                    isRequested
+                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-200'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  {isRequested ? 'Requested' : 'Request access'}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

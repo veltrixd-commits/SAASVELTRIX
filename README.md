@@ -142,6 +142,7 @@ Enable one-click signup/login by wiring Google and Apple credentials:
   - `GOOGLE_OAUTH_CLIENT_ID`
   - `GOOGLE_OAUTH_CLIENT_SECRET`
   - `GOOGLE_OAUTH_REDIRECT_URI` (optional override)
+4. Flip `NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED=true` once the credentials above are present; otherwise the Google button stays disabled on the login/signup screens.
 
 ### Apple
 1. Inside Apple Developer > **Certificates, Identifiers & Profiles**, create a **Service ID** for “Sign in with Apple”.
@@ -153,8 +154,34 @@ Enable one-click signup/login by wiring Google and Apple credentials:
   - `APPLE_OAUTH_KEY_ID`
   - `APPLE_OAUTH_PRIVATE_KEY` (PEM text, newline escaped)
   - `APPLE_OAUTH_REDIRECT_URI` (optional override)
+5. Flip `NEXT_PUBLIC_APPLE_OAUTH_ENABLED=true` after credentials are in place so the Apple button becomes interactive.
 
 After saving the environment variables, restart `npm run dev`. The login/signup pages will now launch `/api/auth/oauth/start`, handle provider callbacks, and return users through `/oauth/complete` which links into the existing local account store.
+
+### SMTP Connectivity (HostAfrica mailbox)
+
+The SMTP helper at [`lib/emailTransport.ts`](lib/emailTransport.ts#L11-L102) now supports three tuning knobs to avoid `connect ETIMEDOUT 64.29.17.1:465` errors:
+
+- `SMTP_SECURE` – set to `true` for implicit TLS on port 465 (default) or `false` when using STARTTLS on port 587.
+- `SMTP_CONNECTION_TIMEOUT` – socket timeout in milliseconds. Increase this (e.g., `20000`) if HostAfrica sometimes responds slowly from your network.
+- `SMTP_ALLOW_INVALID_CERTS` – set to `true` only when testing with self-signed certificates to bypass TLS validation.
+
+If timeouts persist:
+1. Verify the port is reachable from your machine (`Test-NetConnection mail.veltrixgroup.co.za -Port 465`).
+2. Confirm the mailbox password is correct and that the account is permitted to relay.
+3. Try switching to port 587 with `SMTP_SECURE=false` if your ISP blocks 465.
+4. Check whether your antivirus/firewall is intercepting outbound SMTP traffic.
+
+## 📈 CTA Analytics Telemetry
+
+The dashboard now records every high-impact CTA click so we can understand which surfaces operators use most often. Instrumentation lives in [`app/dashboard/page.tsx`](app/dashboard/page.tsx) and persists a ring buffer to the browser only—no data leaves the device.
+
+- Toggle the feature with `NEXT_PUBLIC_CTA_ANALYTICS_ENABLED` (default `true`). You can also force-enable/disable per browser via the `ctaAnalyticsOptIn` localStorage key.
+- Events land in `veltrix_cta_events` with metadata (`id`, `label`, `surface`, and contextual fields). See [`lib/analytics.ts`](lib/analytics.ts) for the helper.
+- Surfaces currently wired: quick setup card, Autopilot tour/run, focus zones, outcome playbooks, stat grid, quick actions, signal feed, directives (signal/hot leads/pipeline/tutorial), activity feed, hot lead tables/cards, tutorial footer CTAs, and modal jump buttons.
+- To inspect data, run `localStorage.getItem('veltrix_cta_events')` in DevTools. The array caps at 200 entries so demos stay lightweight.
+
+When shipping new CTAs, run them through `recordCtaClick()` (usually via the shared `navigateTo()` helper) and document the surface ID so downstream analytics can bucket events correctly.
 
 ---
 

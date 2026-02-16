@@ -1,8 +1,11 @@
 // Leads Management Page
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PlatformBadge } from '@/components/PlatformBadge';
+import { recordCtaClick } from '@/lib/analytics';
+
+type CtaMetadata = Record<string, string | number | boolean | null | undefined>;
 
 export default function LeadsPage() {
   const [filterStatus, setFilterStatus] = useState('ALL');
@@ -23,8 +26,150 @@ export default function LeadsPage() {
   const [responseText, setResponseText] = useState('');
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [viewingComments, setViewingComments] = useState<any>(null);
-  const [replyingToComment, setReplyingToComment] = useState<string | null>(null);
+  const [replyingToComment, setReplyingToComment] = useState<number | null>(null);
   const [replyText, setReplyText] = useState('');
+
+  const logLeadCta = useCallback((event: { id: string; label: string; surface?: string; metadata?: CtaMetadata; destination?: string }) => {
+    recordCtaClick({
+      id: event.id,
+      label: event.label,
+      surface: event.surface || 'leads-hq',
+      destination: event.destination,
+      metadata: event.metadata,
+    });
+  }, []);
+
+  const openAddLeadModal = () => {
+    logLeadCta({
+      id: 'leads-add-open',
+      label: 'Open add lead modal',
+      surface: 'leads-header',
+    });
+    setShowAddModal(true);
+  };
+
+  const cancelAddLeadModal = () => {
+    logLeadCta({
+      id: 'leads-add-cancel',
+      label: 'Cancel add lead modal',
+      surface: 'leads-add-modal',
+    });
+    setShowAddModal(false);
+  };
+
+  const handleStatusFilter = (status: string) => {
+    setFilterStatus(status);
+    logLeadCta({
+      id: `leads-filter-status-${status.toLowerCase()}`,
+      label: 'Filter leads by status',
+      surface: 'leads-stats',
+      metadata: { status },
+    });
+  };
+
+  const handleSourceFilterChange = (value: string) => {
+    setSourceFilter(value);
+    logLeadCta({
+      id: `leads-filter-source-${value.toLowerCase()}`,
+      label: 'Filter leads by source',
+      surface: 'leads-filters',
+      metadata: { source: value },
+    });
+  };
+
+  const handleSortChange = (value: string) => {
+    setSortBy(value);
+    logLeadCta({
+      id: `leads-sort-${value}`,
+      label: 'Change leads sort order',
+      surface: 'leads-filters',
+      metadata: { sort: value },
+    });
+  };
+
+  const handleDateRangeChange = (range: string) => {
+    setDateFilter(range);
+    logLeadCta({
+      id: `leads-date-range-${range}`,
+      label: 'Apply lead date window',
+      surface: 'leads-filters',
+      metadata: { range },
+    });
+  };
+
+  const handleRespondToLead = (lead: any) => {
+    logLeadCta({
+      id: `leads-response-open-${lead.id}`,
+      label: 'Open lead response modal',
+      surface: 'leads-table-actions',
+      metadata: { leadId: lead.id, status: lead.status, source: lead.source },
+    });
+    setRespondingToLead(lead);
+    setShowResponseModal(true);
+  };
+
+  const handleViewLeadComments = (lead: any) => {
+    logLeadCta({
+      id: `leads-comments-open-${lead.id}`,
+      label: 'View lead comments',
+      surface: 'leads-table-actions',
+      metadata: { leadId: lead.id, status: lead.status },
+    });
+    setViewingComments(lead);
+    setShowCommentsModal(true);
+  };
+
+  const handleCloseResponseModal = () => {
+    if (respondingToLead) {
+      logLeadCta({
+        id: `leads-response-cancel-${respondingToLead.id}`,
+        label: 'Cancel lead response',
+        surface: 'leads-response-modal',
+        metadata: { leadId: respondingToLead.id },
+      });
+    }
+    setShowResponseModal(false);
+    setRespondingToLead(null);
+    setResponseText('');
+  };
+
+  const handleCloseCommentsModal = () => {
+    if (viewingComments) {
+      logLeadCta({
+        id: `leads-comments-close-${viewingComments.id}`,
+        label: 'Close comments modal',
+        surface: 'leads-comments-modal',
+        metadata: { leadId: viewingComments.id },
+      });
+    }
+    setShowCommentsModal(false);
+    setViewingComments(null);
+    setReplyingToComment(null);
+    setReplyText('');
+  };
+
+  const handleOpenReplyBox = (commentId: number) => {
+    logLeadCta({
+      id: `leads-comment-reply-init-${commentId}`,
+      label: 'Open reply editor',
+      surface: 'leads-comments-modal',
+      metadata: { leadId: viewingComments?.id, commentId },
+    });
+    setReplyingToComment(commentId);
+  };
+
+  const handleCancelReply = () => {
+    if (replyingToComment !== null) {
+      logLeadCta({
+        id: `leads-comment-reply-cancel-${replyingToComment}`,
+        label: 'Cancel reply draft',
+        surface: 'leads-comments-modal',
+        metadata: { leadId: viewingComments?.id, commentId: replyingToComment },
+      });
+    }
+    setReplyingToComment(null);
+    setReplyText('');
+  };
 
   // Load leads from localStorage on mount
   useEffect(() => {
@@ -214,6 +359,13 @@ export default function LeadsPage() {
       notes: 'New lead added'
     };
     
+    logLeadCta({
+      id: 'leads-save-new',
+      label: 'Save new lead',
+      surface: 'leads-add-modal',
+      metadata: { source: lead.source },
+    });
+    
     setLeads([...leads, lead]);
     setNewLead({ name: '', email: '', phone: '', source: 'TikTok' });
     setShowAddModal(false);
@@ -221,11 +373,25 @@ export default function LeadsPage() {
 
   // Edit lead
   const openEditModal = (lead: any) => {
+    logLeadCta({
+      id: `leads-edit-open-${lead.id}`,
+      label: 'Open edit lead modal',
+      surface: 'leads-table-actions',
+      metadata: { leadId: lead.id, status: lead.status, source: lead.source },
+    });
     setEditingLead({...lead});
     setShowEditModal(true);
   };
 
   const updateLead = () => {
+    if (editingLead) {
+      logLeadCta({
+        id: `leads-edit-save-${editingLead.id}`,
+        label: 'Save lead edits',
+        surface: 'leads-edit-modal',
+        metadata: { leadId: editingLead.id, status: editingLead.status },
+      });
+    }
     setLeads(leads.map(l => l.id === editingLead.id ? editingLead : l));
     setShowEditModal(false);
     setEditingLead(null);
@@ -233,8 +399,21 @@ export default function LeadsPage() {
 
   // Delete lead
   const deleteLead = (id: number) => {
+    const targetLead = leads.find((l) => l.id === id);
+    logLeadCta({
+      id: `leads-delete-request-${id}`,
+      label: 'Attempt delete lead',
+      surface: 'leads-table-actions',
+      metadata: { leadId: id, status: targetLead?.status },
+    });
     if (confirm('Are you sure you want to delete this lead?')) {
       setLeads(leads.filter(l => l.id !== id));
+      logLeadCta({
+        id: `leads-delete-confirmed-${id}`,
+        label: 'Lead deleted',
+        surface: 'leads-table-actions',
+        metadata: { leadId: id },
+      });
     }
   };
 
@@ -264,6 +443,12 @@ export default function LeadsPage() {
     setResponseText('');
     setShowResponseModal(false);
     setRespondingToLead(null);
+    logLeadCta({
+      id: `leads-response-send-${respondingToLead.id}`,
+      label: 'Send lead response',
+      surface: 'leads-response-modal',
+      metadata: { leadId: respondingToLead.id, source: respondingToLead.source },
+    });
     alert('Response sent successfully!');
   };
   
@@ -295,6 +480,12 @@ export default function LeadsPage() {
     setLeads(updatedLeads);
     setReplyText('');
     setReplyingToComment(null);
+    logLeadCta({
+      id: `leads-comment-reply-${commentId}`,
+      label: 'Reply to lead comment',
+      surface: 'leads-comments-modal',
+      metadata: { leadId: viewingComments.id, commentId },
+    });
   };
   
   // Filter leads with date range
@@ -361,7 +552,7 @@ export default function LeadsPage() {
           <p className="text-gray-600 dark:text-gray-400 mt-1">Qualify, reply, and move real buyers forward before momentum dies.</p>
         </div>
         <button 
-          onClick={() => setShowAddModal(true)}
+          onClick={openAddLeadModal}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
         >
           + Add lead now
@@ -370,11 +561,11 @@ export default function LeadsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <StatCard label="Total Leads" value={stats.total} color="blue" active={filterStatus === 'ALL'} onClick={() => setFilterStatus('ALL')} />
-        <StatCard label="🔥 Hot" value={stats.hot} color="red" active={filterStatus === 'HOT'} onClick={() => setFilterStatus('HOT')} />
-        <StatCard label="Warm" value={stats.warm} color="orange" active={filterStatus === 'WARM'} onClick={() => setFilterStatus('WARM')} />
-        <StatCard label="Cold" value={stats.cold} color="gray" active={filterStatus === 'COLD'} onClick={() => setFilterStatus('COLD')} />
-        <StatCard label="✨ New" value={stats.new} color="green" active={filterStatus === 'NEW'} onClick={() => setFilterStatus('NEW')} />
+        <StatCard label="Total Leads" value={stats.total} color="blue" active={filterStatus === 'ALL'} onClick={() => handleStatusFilter('ALL')} />
+        <StatCard label="🔥 Hot" value={stats.hot} color="red" active={filterStatus === 'HOT'} onClick={() => handleStatusFilter('HOT')} />
+        <StatCard label="Warm" value={stats.warm} color="orange" active={filterStatus === 'WARM'} onClick={() => handleStatusFilter('WARM')} />
+        <StatCard label="Cold" value={stats.cold} color="gray" active={filterStatus === 'COLD'} onClick={() => handleStatusFilter('COLD')} />
+        <StatCard label="✨ New" value={stats.new} color="green" active={filterStatus === 'NEW'} onClick={() => handleStatusFilter('NEW')} />
       </div>
 
       {/* Search and Filters */}
@@ -392,7 +583,7 @@ export default function LeadsPage() {
             </div>
             <select 
               value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
+              onChange={(e) => handleSourceFilterChange(e.target.value)}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
             >
               <option value="all">All Sources</option>
@@ -404,7 +595,7 @@ export default function LeadsPage() {
             </select>
             <select 
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => handleSortChange(e.target.value)}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
             >
               <option value="recent">Sort by: Recent</option>
@@ -421,7 +612,7 @@ export default function LeadsPage() {
               {['all', 'today', 'week', 'month'].map(range => (
                 <button
                   key={range}
-                  onClick={() => setDateFilter(range)}
+                  onClick={() => handleDateRangeChange(range)}
                   className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
                     dateFilter === range
                       ? 'bg-blue-600 text-white'
@@ -444,14 +635,8 @@ export default function LeadsPage() {
             lead={lead} 
             onEdit={openEditModal} 
             onDelete={deleteLead}
-            onRespond={(lead: any) => {
-              setRespondingToLead(lead);
-              setShowResponseModal(true);
-            }}
-            onViewComments={(lead: any) => {
-              setViewingComments(lead);
-              setShowCommentsModal(true);
-            }}
+            onRespond={handleRespondToLead}
+            onViewComments={handleViewLeadComments}
           />
         ))}
       </div>
@@ -478,14 +663,8 @@ export default function LeadsPage() {
                   lead={lead} 
                   onEdit={openEditModal} 
                   onDelete={deleteLead}
-                  onRespond={(lead: any) => {
-                    setRespondingToLead(lead);
-                    setShowResponseModal(true);
-                  }}
-                  onViewComments={(lead: any) => {
-                    setViewingComments(lead);
-                    setShowCommentsModal(true);
-                  }}
+                  onRespond={handleRespondToLead}
+                  onViewComments={handleViewLeadComments}
                 />
               ))}
             </tbody>
@@ -560,7 +739,7 @@ export default function LeadsPage() {
                 Save lead
               </button>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={cancelAddLeadModal}
                 className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium"
               >
                 Cancel
@@ -680,11 +859,7 @@ export default function LeadsPage() {
             />
             <div className="flex gap-3 mt-4">
               <button
-                onClick={() => {
-                  setShowResponseModal(false);
-                  setRespondingToLead(null);
-                  setResponseText('');
-                }}
+                onClick={handleCloseResponseModal}
                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
@@ -710,12 +885,7 @@ export default function LeadsPage() {
                 💬 Comments for {viewingComments.name}
               </h3>
               <button
-                onClick={() => {
-                  setShowCommentsModal(false);
-                  setViewingComments(null);
-                  setReplyingToComment(null);
-                  setReplyText('');
-                }}
+                onClick={handleCloseCommentsModal}
                 className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl"
               >
                 ×
@@ -778,10 +948,7 @@ export default function LeadsPage() {
                             Reply
                           </button>
                           <button
-                            onClick={() => {
-                              setReplyingToComment(null);
-                              setReplyText('');
-                            }}
+                            onClick={handleCancelReply}
                             className="px-3 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded text-sm hover:bg-gray-300 dark:hover:bg-gray-500"
                           >
                             Cancel
@@ -790,7 +957,7 @@ export default function LeadsPage() {
                       </div>
                     ) : (
                       <button
-                        onClick={() => setReplyingToComment(comment.id)}
+                        onClick={() => handleOpenReplyBox(comment.id)}
                         className="text-blue-600 dark:text-blue-400 text-sm font-medium hover:underline mt-2"
                       >
                         💬 Reply

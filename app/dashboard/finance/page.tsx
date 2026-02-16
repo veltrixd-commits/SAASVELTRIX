@@ -79,6 +79,16 @@ interface EmailHealthStatus {
   missing: string[];
 }
 
+const EXPENSE_STORAGE_KEY = 'financeExpenses';
+
+const createDefaultExpenseForm = (category: string) => ({
+  date: new Date().toISOString().split('T')[0],
+  category,
+  description: '',
+  amount: '',
+  vendor: '',
+});
+
 export default function FinancePage() {
   const [userType, setUserType] = useState<'business' | 'employee' | 'creator' | 'individual'>('business');
   const [isBudgetingMode, setIsBudgetingMode] = useState(false);
@@ -126,10 +136,12 @@ export default function FinancePage() {
     { id: '2', date: '2026-02-13', category: 'Software', description: 'Monthly SaaS subscriptions', amount: 1200, vendor: 'Various' },
     { id: '3', date: '2026-02-12', category: 'Office', description: 'Office supplies', amount: 350, vendor: 'Office Depot' },
   ]);
+  const [newExpenseForm, setNewExpenseForm] = useState(() => createDefaultExpenseForm('Marketing'));
 
   // Initialize expense categories based on mode
   const businessExpenseCategories = ['Marketing', 'Software', 'Office', 'Travel', 'Equipment', 'Other'];
   const budgetingExpenseCategories = ['Housing', 'Food', 'Transport', 'Entertainment', 'Bills', 'Healthcare', 'Education', 'Savings'];
+  const expenseCategories = isBudgetingMode ? budgetingExpenseCategories : businessExpenseCategories;
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type });
@@ -143,6 +155,18 @@ export default function FinancePage() {
     const savedQuotations = localStorage.getItem('financeQuotations');
     const savedClients = localStorage.getItem('financeClients');
     const savedLogo = localStorage.getItem('businessLogo');
+    let persistedExpenses: any[] | null = null;
+    try {
+      const storedExpenses = localStorage.getItem(EXPENSE_STORAGE_KEY);
+      if (storedExpenses) {
+        const parsed = JSON.parse(storedExpenses);
+        if (Array.isArray(parsed)) {
+          persistedExpenses = parsed;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to parse stored expenses', error);
+    }
     
     setInvoices(syncedInvoices as Invoice[]);
     if (savedQuotations) setQuotations(JSON.parse(savedQuotations));
@@ -170,14 +194,21 @@ export default function FinancePage() {
       });
       
       // Set demo budget expenses
-      setExpenses([
-        { id: '1', date: '2026-02-14', category: 'Housing', description: 'Rent payment', amount: 3500, vendor: 'Landlord' },
-        { id: '2', date: '2026-02-13', category: 'Food', description: 'Groceries', amount: 850, vendor: 'Woolworths' },
-        { id: '3', date: '2026-02-12', category: 'Transport', description: 'Fuel', amount: 600, vendor: 'Shell' },
-        { id: '4', date: '2026-02-10', category: 'Entertainment', description: 'Netflix subscription', amount: 199, vendor: 'Netflix' },
-        { id: '5', date: '2026-02-08', category: 'Bills', description: 'Electricity', amount: 1200, vendor: 'Eskom' },
-      ]);
+      if (persistedExpenses && persistedExpenses.length > 0) {
+        setExpenses(persistedExpenses as any);
+      } else {
+        setExpenses([
+          { id: '1', date: '2026-02-14', category: 'Housing', description: 'Rent payment', amount: 3500, vendor: 'Landlord' },
+          { id: '2', date: '2026-02-13', category: 'Food', description: 'Groceries', amount: 850, vendor: 'Woolworths' },
+          { id: '3', date: '2026-02-12', category: 'Transport', description: 'Fuel', amount: 600, vendor: 'Shell' },
+          { id: '4', date: '2026-02-10', category: 'Entertainment', description: 'Netflix subscription', amount: 199, vendor: 'Netflix' },
+          { id: '5', date: '2026-02-08', category: 'Bills', description: 'Electricity', amount: 1200, vendor: 'Eskom' },
+        ]);
+      }
     } else {
+      if (persistedExpenses && persistedExpenses.length > 0) {
+        setExpenses(persistedExpenses as any);
+      }
       // Business/Creator mode - derive business data from synced invoices + sales
       const paidInvoices = syncedInvoices.filter((invoice) => invoice.status === 'paid');
       const pendingInvoices = syncedInvoices.filter((invoice) => invoice.status === 'pending');
@@ -268,6 +299,10 @@ export default function FinancePage() {
   useEffect(() => {
     localStorage.setItem('financeClients', JSON.stringify(clients));
   }, [clients]);
+
+  useEffect(() => {
+    localStorage.setItem(EXPENSE_STORAGE_KEY, JSON.stringify(expenses));
+  }, [expenses]);
 
   useEffect(() => {
     if (isBudgetingMode) return;
@@ -366,6 +401,14 @@ export default function FinancePage() {
     loadEmailHealth();
   }, [isBudgetingMode]);
 
+  useEffect(() => {
+    const categories = isBudgetingMode ? budgetingExpenseCategories : businessExpenseCategories;
+    setNewExpenseForm((prev) => ({
+      ...prev,
+      category: categories.includes(prev.category) ? prev.category : categories[0],
+    }));
+  }, [isBudgetingMode]);
+
   const addOrUpdateClient = (name: string, email: string, phone?: string) => {
     const existing = clients.find(c => c.email === email);
     if (!existing) {
@@ -461,6 +504,37 @@ export default function FinancePage() {
       ]
     });
     exportToTXT(report, 'financial-report');
+  };
+
+  const handleAddExpense = () => {
+    if (!newExpenseForm.description.trim()) {
+      showToast('Add a short description before saving the expense.', 'error');
+      return;
+    }
+
+    const amountValue = Number(newExpenseForm.amount);
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      showToast('Enter a valid amount above zero.', 'error');
+      return;
+    }
+
+    const entry = {
+      id: Date.now().toString(),
+      date: newExpenseForm.date || new Date().toISOString().split('T')[0],
+      category: newExpenseForm.category,
+      description: newExpenseForm.description.trim(),
+      amount: amountValue,
+      vendor: newExpenseForm.vendor.trim() || 'N/A',
+    };
+
+    setExpenses((prev) => {
+      const next = [entry, ...prev];
+      return next.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    });
+
+    setShowAddExpense(false);
+    setNewExpenseForm(createDefaultExpenseForm(expenseCategories[0] || 'Other'));
+    showToast('Expense added to ledger.', 'success');
   };
 
   const formatCurrency = (amount: number) => {
@@ -787,7 +861,10 @@ export default function FinancePage() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-900">Recent Expenses</h2>
               <button
-                onClick={() => setShowAddExpense(true)}
+                onClick={() => {
+                  setNewExpenseForm((prev) => ({ ...prev, date: new Date().toISOString().split('T')[0] }));
+                  setShowAddExpense(true);
+                }}
                 className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:from-green-700 hover:to-emerald-700 transition-all"
               >
                 + Add Expense
@@ -1029,7 +1106,10 @@ export default function FinancePage() {
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white">Expense Tracking</h3>
             <button
-              onClick={() => setShowAddExpense(true)}
+              onClick={() => {
+                setNewExpenseForm((prev) => ({ ...prev, date: new Date().toISOString().split('T')[0] }));
+                setShowAddExpense(true);
+              }}
               className="px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
             >
               + Add Expense
@@ -1945,19 +2025,23 @@ export default function FinancePage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
                 <input
                   type="date"
-                  defaultValue={new Date().toISOString().split('T')[0]}
+                  value={newExpenseForm.date}
+                  onChange={(e) => setNewExpenseForm({ ...newExpenseForm, date: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
-                <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
-                  <option>Marketing</option>
-                  <option>Software</option>
-                  <option>Office</option>
-                  <option>Travel</option>
-                  <option>Equipment</option>
-                  <option>Other</option>
+                <select
+                  value={newExpenseForm.category}
+                  onChange={(e) => setNewExpenseForm({ ...newExpenseForm, category: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                >
+                  {expenseCategories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -1965,6 +2049,8 @@ export default function FinancePage() {
                 <input
                   type="text"
                   placeholder="What was this expense for?"
+                  value={newExpenseForm.description}
+                  onChange={(e) => setNewExpenseForm({ ...newExpenseForm, description: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
@@ -1973,6 +2059,8 @@ export default function FinancePage() {
                 <input
                   type="number"
                   placeholder="0.00"
+                  value={newExpenseForm.amount}
+                  onChange={(e) => setNewExpenseForm({ ...newExpenseForm, amount: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
@@ -1981,22 +2069,24 @@ export default function FinancePage() {
                 <input
                   type="text"
                   placeholder="Who did you pay?"
+                  value={newExpenseForm.vendor}
+                  onChange={(e) => setNewExpenseForm({ ...newExpenseForm, vendor: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShowAddExpense(false)}
+                onClick={() => {
+                  setShowAddExpense(false);
+                  setNewExpenseForm(createDefaultExpenseForm(expenseCategories[0] || 'Other'));
+                }}
                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  // TODO: Save expense to localStorage or API
-                  setShowAddExpense(false);
-                }}
+                onClick={handleAddExpense}
                 className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
               >
                 Add Expense

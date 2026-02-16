@@ -12,6 +12,9 @@ import {
   savePendingSignupVerification,
 } from '@/lib/pendingSignupVerification';
 
+const GOOGLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true';
+const APPLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_APPLE_OAUTH_ENABLED === 'true';
+
 type UserType = 'business' | 'employee' | 'creator' | 'individual';
 
 export default function SignUpPage() {
@@ -215,6 +218,16 @@ export default function SignUpPage() {
   };
 
   const handleSocialSignup = async (provider: 'google' | 'apple') => {
+    const providerEnabled = provider === 'google' ? GOOGLE_OAUTH_ENABLED : APPLE_OAUTH_ENABLED;
+    if (!providerEnabled) {
+      setErrors({
+        general: `${provider === 'google' ? 'Google' : 'Apple'} signup is disabled. Add the provider credentials and set NEXT_PUBLIC_${
+          provider === 'google' ? 'GOOGLE' : 'APPLE'
+        }_OAUTH_ENABLED=true in your .env file.`,
+      });
+      return;
+    }
+
     if (!validateForm({ requirePassword: false })) {
       return;
     }
@@ -633,7 +646,7 @@ export default function SignUpPage() {
             <button
               type="button"
               onClick={() => handleSocialSignup('google')}
-              disabled={Boolean(socialLoading) || isSubmitting}
+              disabled={!GOOGLE_OAUTH_ENABLED || Boolean(socialLoading) || isSubmitting}
               className="w-full inline-flex items-center justify-center gap-2 py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
             >
               {socialLoading === 'google' ? (
@@ -655,7 +668,7 @@ export default function SignUpPage() {
             <button
               type="button"
               onClick={() => handleSocialSignup('apple')}
-              disabled={Boolean(socialLoading) || isSubmitting}
+              disabled={!APPLE_OAUTH_ENABLED || Boolean(socialLoading) || isSubmitting}
               className="w-full inline-flex items-center justify-center gap-2 py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
             >
               {socialLoading === 'apple' ? (
@@ -672,6 +685,11 @@ export default function SignUpPage() {
               )}
             </button>
           </div>
+          {(!GOOGLE_OAUTH_ENABLED || !APPLE_OAUTH_ENABLED) && (
+            <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+              Enable providers by adding credentials and setting NEXT_PUBLIC_[PROVIDER]_OAUTH_ENABLED=true.
+            </p>
+          )}
 
           {/* Login Link */}
           <p className="text-center text-sm text-gray-600 dark:text-gray-400">

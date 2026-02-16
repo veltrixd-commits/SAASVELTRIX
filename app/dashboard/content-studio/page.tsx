@@ -783,29 +783,108 @@ If you found this helpful, make sure to follow for more content like this. Drop 
   );
 }
 
+const CONTENT_SCHEDULE_STORAGE_KEY = 'veltrix_content_schedule';
+const defaultContentSchedule = [
+  { id: 1, title: 'Morning Routine Video', platform: 'TikTok', date: '2026-02-15', status: 'Scheduled' },
+  { id: 2, title: 'Product Review: Tech Gadget', platform: 'YouTube', date: '2026-02-16', status: 'Draft' },
+  { id: 3, title: 'Behind the Scenes', platform: 'Instagram', date: '2026-02-17', status: 'Scheduled' },
+  { id: 4, title: 'Q&A Session', platform: 'TikTok', date: '2026-02-18', status: 'Idea' },
+];
+
+const createDefaultDropForm = () => ({
+  title: '',
+  platform: 'TikTok',
+  date: new Date().toISOString().split('T')[0],
+  status: 'Idea',
+});
+
 function ContentCalendar() {
   const [showAddContent, setShowAddContent] = useState(false);
-  const upcomingContent = [
-    { id: 1, title: 'Morning Routine Video', platform: 'TikTok', date: '2026-02-15', status: 'Scheduled' },
-    { id: 2, title: 'Product Review: Tech Gadget', platform: 'YouTube', date: '2026-02-16', status: 'Draft' },
-    { id: 3, title: 'Behind the Scenes', platform: 'Instagram', date: '2026-02-17', status: 'Scheduled' },
-    { id: 4, title: 'Q&A Session', platform: 'TikTok', date: '2026-02-18', status: 'Idea' },
-  ];
+  const [scheduledContent, setScheduledContent] = useState(defaultContentSchedule);
+  const [newDrop, setNewDrop] = useState(createDefaultDropForm());
+  const [calendarToast, setCalendarToast] = useState<string | null>(null);
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(CONTENT_SCHEDULE_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setScheduledContent(parsed);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load content schedule', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(CONTENT_SCHEDULE_STORAGE_KEY, JSON.stringify(scheduledContent));
+  }, [scheduledContent]);
+
+  useEffect(() => {
+    if (!calendarToast) return;
+    const timeout = window.setTimeout(() => setCalendarToast(null), 2500);
+    return () => window.clearTimeout(timeout);
+  }, [calendarToast]);
+
+  const handleOpenScheduler = () => {
+    setFormError('');
+    setNewDrop(createDefaultDropForm());
+    setShowAddContent(true);
+  };
+
+  const handleScheduleDrop = () => {
+    if (!newDrop.title.trim()) {
+      setFormError('Add a content title before confirming.');
+      return;
+    }
+
+    if (!newDrop.date) {
+      setFormError('Select a publish date before confirming.');
+      return;
+    }
+
+    const entry = {
+      id: Date.now(),
+      title: newDrop.title.trim(),
+      platform: newDrop.platform,
+      date: newDrop.date,
+      status: newDrop.status,
+    };
+
+    setScheduledContent((prev) => {
+      const next = [entry, ...prev];
+      return next.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    });
+
+    setShowAddContent(false);
+    setNewDrop(createDefaultDropForm());
+    setFormError('');
+    setCalendarToast(`Drop scheduled for ${entry.date}.`);
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-xl font-bold text-gray-900 dark:text-white">Drop Schedule</h3>
         <button 
-          onClick={() => setShowAddContent(true)}
+          onClick={handleOpenScheduler}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:scale-105 transition-all"
         >
           Schedule Drop
         </button>
       </div>
 
+      {calendarToast && (
+        <div className="p-3 rounded-xl bg-blue-50 text-blue-700 text-sm font-medium border border-blue-100">
+          {calendarToast}
+        </div>
+      )}
+
       <div className="space-y-3">
-        {upcomingContent.map((item) => (
+        {scheduledContent.map((item) => (
           <div key={item.id} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 hover:scale-102 transition-all">
             <div className="flex items-start justify-between">
               <div className="flex-1">
@@ -839,12 +918,18 @@ function ContentCalendar() {
                 <input
                   type="text"
                   placeholder="e.g., Morning Routine Vlog"
+                  value={newDrop.title}
+                  onChange={(e) => setNewDrop({ ...newDrop, title: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Platform</label>
-                <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
+                <select
+                  value={newDrop.platform}
+                  onChange={(e) => setNewDrop({ ...newDrop, platform: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                >
                   <option>TikTok</option>
                   <option>YouTube</option>
                   <option>Instagram</option>
@@ -856,13 +941,18 @@ function ContentCalendar() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Publish Date</label>
                 <input
                   type="date"
-                  defaultValue={new Date().toISOString().split('T')[0]}
+                  value={newDrop.date}
+                  onChange={(e) => setNewDrop({ ...newDrop, date: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
+                <select
+                  value={newDrop.status}
+                  onChange={(e) => setNewDrop({ ...newDrop, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                >
                   <option>Idea</option>
                   <option>Draft</option>
                   <option>Scheduled</option>
@@ -870,18 +960,21 @@ function ContentCalendar() {
                 </select>
               </div>
             </div>
+            {formError && (
+              <p className="text-sm text-red-600 mt-2">{formError}</p>
+            )}
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShowAddContent(false)}
+                onClick={() => {
+                  setShowAddContent(false);
+                  setFormError('');
+                }}
                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  // TODO: Save content to calendar
-                  setShowAddContent(false);
-                }}
+                onClick={handleScheduleDrop}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Confirm Drop

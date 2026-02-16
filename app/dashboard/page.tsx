@@ -9,6 +9,7 @@ import { PlatformBadge } from '@/components/PlatformBadge';
 import { Sparkles, X, ArrowRight, Heart, Video, TrendingUp, Users, Zap, Target, MessageSquare, DollarSign, CreditCard } from 'lucide-react';
 import { getCurrentUser, updateCurrentUser } from '@/lib/auth';
 import { getSalesHistory } from '@/lib/commerceData';
+import { recordCtaClick } from '@/lib/analytics';
 
 function readStoredArray<T = any>(key: string): T[] {
   try {
@@ -21,11 +22,21 @@ function readStoredArray<T = any>(key: string): T[] {
   }
 }
 
+const slugify = (value: string) =>
+  (value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'cta');
+
+type NavigateAnalytics = {
+  id?: string;
+  label?: string;
+  surface?: string;
+  metadata?: Record<string, string | number | boolean | null>;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
-  if (typeof window === 'undefined') {
-    return null;
-  }
   const [showTourBanner, setShowTourBanner] = useState(false);
   const [showAutopilotBanner, setShowAutopilotBanner] = useState(true);
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
@@ -46,6 +57,10 @@ export default function DashboardPage() {
     contentPublished: 12,
     motivationLevel: 92,
   });
+
+  if (typeof window === 'undefined') {
+    return null;
+  }
 
   useEffect(() => {
     // Auto-hide welcome banner after 2 seconds
@@ -142,13 +157,24 @@ export default function DashboardPage() {
     routesToPrefetch.forEach((path) => router.prefetch(path));
   }, [router]);
 
-  const navigateTo = useCallback((path: string) => {
+  const navigateTo = useCallback((path: string, analytics?: NavigateAnalytics) => {
+    recordCtaClick({
+      id: analytics?.id || `cta:${path}`,
+      label: analytics?.label || `Navigate to ${path}`,
+      destination: path,
+      surface: analytics?.surface || 'dashboard',
+      metadata: analytics?.metadata,
+    });
     router.push(path);
   }, [router]);
 
   const handleTakeTour = useCallback(() => {
-    router.push('/dashboard/tour');
-  }, [router]);
+    navigateTo('/dashboard/tour', {
+      id: 'dashboard-tour-banner',
+      label: 'Start the dashboard tour',
+      surface: 'dashboard-tour-banner',
+    });
+  }, [navigateTo]);
 
   const handleDismissTourBanner = useCallback(() => {
     setShowTourBanner(false);
@@ -382,9 +408,13 @@ export default function DashboardPage() {
     setModalData(null);
   }, []);
 
-  const handleModalNavigate = useCallback((path: string) => {
+  const handleModalNavigate = useCallback((path: string, analytics?: NavigateAnalytics) => {
     closeModal();
-    navigateTo(path);
+    navigateTo(path, analytics || {
+      id: `dashboard-metric-modal-${path}`,
+      label: `Modal CTA → ${path}`,
+      surface: 'dashboard-metric-modal',
+    });
   }, [closeModal, navigateTo]);
 
   const handleMetricClick = useCallback((metricType: string, e: React.MouseEvent) => {
@@ -472,7 +502,11 @@ export default function DashboardPage() {
                 Decision tax slows the morning. Open the sequence, follow the order, and clear the deck without guesswork.
               </p>
               <button
-                onClick={() => router.push('/dashboard/today')}
+                onClick={() => navigateTo('/dashboard/today', {
+                  id: 'dashboard-autopilot-run',
+                  label: 'Execute run sheet',
+                  surface: 'autopilot-banner',
+                })}
                 className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4" />
@@ -507,7 +541,11 @@ export default function DashboardPage() {
               <button
                 onClick={(e) => {
                   e.preventDefault();
-                  router.push('/dashboard/settings');
+                  navigateTo('/dashboard/settings', {
+                    id: 'dashboard-targets-lock',
+                    label: 'Lock targets CTA',
+                    surface: 'dashboard-quick-setup',
+                  });
                 }}
                 className="px-6 py-2.5 bg-gradient-to-r from-orange-600 to-yellow-600 text-white rounded-lg font-semibold hover:scale-105 active:scale-95 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-2 cursor-pointer"
               >
@@ -526,10 +564,18 @@ export default function DashboardPage() {
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Focus zones—clear them now</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {recommendedActions.map((action, index) => (
-              <a
-                key={index}
-                href={action.href}
-                className="glass-card rounded-xl p-6 hover:scale-105 transition-all group cursor-pointer"
+              <button
+                type="button"
+                key={action.title}
+                onClick={() =>
+                  navigateTo(action.href, {
+                    id: `focus-zone-${slugify(action.title)}`,
+                    label: `Focus zone → ${action.title}`,
+                    surface: 'dashboard-focus-zones',
+                    metadata: { order: index + 1 },
+                  })
+                }
+                className="glass-card rounded-xl p-6 hover:scale-105 transition-all group cursor-pointer text-left"
               >
                 <div className={`w-12 h-12 bg-gradient-to-r ${action.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-all`}>
                   {action.icon}
@@ -539,7 +585,7 @@ export default function DashboardPage() {
                 <div className="mt-3 flex items-center gap-2 text-blue-600 text-sm font-medium">
                   Open <ArrowRight className="w-4 h-4" />
                 </div>
-              </a>
+              </button>
             ))}
           </div>
         </div>
@@ -582,7 +628,12 @@ export default function DashboardPage() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => navigateTo(playbook.href)}
+                  onClick={() => navigateTo(playbook.href, {
+                    id: `playbook-${playbook.key}`,
+                    label: `Outcome playbook → ${playbook.label}`,
+                    surface: 'dashboard-outcome-playbooks',
+                    metadata: { cta: playbook.cta, status: playbook.status },
+                  })}
                   className="text-sm font-semibold text-blue-600 dark:text-blue-300 inline-flex items-center gap-1 hover:gap-2 transition-all"
                 >
                   {playbook.cta}
@@ -648,7 +699,12 @@ export default function DashboardPage() {
           positive
           href="/dashboard/leads?status=HOT"
           bgColor="from-red-500 to-orange-600"
-          onClick={() => navigateTo('/dashboard/leads?status=HOT')}
+          onClick={() => navigateTo('/dashboard/leads?status=HOT', {
+            id: 'stat-hot-leads',
+            label: 'Stat card → Hot leads',
+            surface: 'dashboard-stat-grid',
+            metadata: { value: stats.hotLeads },
+          })}
           direction="Pull the closing script Autopilot staged for these buyers."
           actionLabel="Run closing stack"
         />
@@ -683,35 +739,58 @@ export default function DashboardPage() {
           icon={<MessageSquare className="w-6 h-6 sm:w-7 sm:h-7" />}
           title="Inbox"
           subtitle={`Reply to ${stats.unreadMessages}`}
-          onClick={() => navigateTo('/dashboard/inbox')}
+          onClick={() => navigateTo('/dashboard/inbox', {
+            id: 'quick-inbox',
+            label: 'Quick action → Inbox',
+            surface: 'dashboard-quick-actions',
+            metadata: { unread: stats.unreadMessages },
+          })}
           color="blue"
         />
         <QuickActionCard
           icon={<CreditCard className="w-6 h-6 sm:w-7 sm:h-7" />}
           title="Point of Sale"
           subtitle="Run walk-ins"
-          onClick={() => navigateTo('/dashboard/pos')}
+          onClick={() => navigateTo('/dashboard/pos', {
+            id: 'quick-pos',
+            label: 'Quick action → POS',
+            surface: 'dashboard-quick-actions',
+          })}
           color="emerald"
         />
         <QuickActionCard
           icon={<DollarSign className="w-6 h-6 sm:w-7 sm:h-7" />}
           title="Invoices"
           subtitle="Collect cash"
-          onClick={() => navigateTo('/dashboard/invoices')}
+          onClick={() => navigateTo('/dashboard/invoices', {
+            id: 'quick-invoices',
+            label: 'Quick action → Invoices',
+            surface: 'dashboard-quick-actions',
+          })}
           color="green"
         />
         <QuickActionCard
           icon={<Zap className="w-6 h-6 sm:w-7 sm:h-7" />}
           title="Automations"
           subtitle={`${stats.runningAutomations} running`}
-          onClick={() => navigateTo('/dashboard/automations')}
+          onClick={() => navigateTo('/dashboard/automations', {
+            id: 'quick-automations',
+            label: 'Quick action → Automations',
+            surface: 'dashboard-quick-actions',
+            metadata: { running: stats.runningAutomations },
+          })}
           color="purple"
         />
         <QuickActionCard
           icon={"🚚"}
           title="Delivery"
           subtitle={`Move ${stats.pendingOrders}`}
-          onClick={() => navigateTo('/dashboard/delivery')}
+          onClick={() => navigateTo('/dashboard/delivery', {
+            id: 'quick-delivery',
+            label: 'Quick action → Delivery',
+            surface: 'dashboard-quick-actions',
+            metadata: { pending: stats.pendingOrders },
+          })}
           color="orange"
         />
       </div>
@@ -720,15 +799,20 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Platform Breakdown */}
         <div className="glass-card rounded-2xl p-6">
-          <h2 className="text-lg sm:text-xl font-bold mb-4 flex items-center justify-between">
-            <span>📊 Channels feeding the pipeline</span>
-            <a 
-              href="/dashboard/leads" 
-              className="text-sm text-blue-600 hover:text-blue-700 font-normal"
-            >
-              Jump to leads →
-            </a>
-          </h2>
+            <h2 className="text-lg sm:text-xl font-bold mb-4 flex items-center justify-between">
+              <span>📊 Channels feeding the pipeline</span>
+              <button
+                type="button"
+                onClick={() => navigateTo('/dashboard/leads', {
+                  id: 'channels-jump-to-leads',
+                  label: 'Jump to leads feed',
+                  surface: 'dashboard-channel-breakdown',
+                })}
+                className="text-sm text-blue-600 hover:text-blue-700 font-normal"
+              >
+                Jump to leads →
+              </button>
+            </h2>
           <div className="space-y-3">
             <PlatformRow 
               platform="TikTok" 
@@ -781,7 +865,12 @@ export default function DashboardPage() {
               </span>
               <button
                 type="button"
-                onClick={() => navigateTo(signalDirective.href)}
+                onClick={() => navigateTo(signalDirective.href, {
+                  id: 'directive-signal-feed',
+                  label: `Signal directive → ${signalDirective.cta}`,
+                  surface: 'dashboard-signal-feed',
+                  metadata: { status: signalDirective.status },
+                })}
                 className="text-sm font-semibold text-blue-600 dark:text-blue-300 inline-flex items-center gap-1 hover:gap-2 transition-all"
               >
                 {signalDirective.cta}
@@ -794,37 +883,61 @@ export default function DashboardPage() {
               icon="🎵"
               text="New TikTok lead: Ethan Taylor"
               time="5 min ago"
-              href="/dashboard/leads"
+              onClick={() => navigateTo('/dashboard/leads', {
+                id: 'signal-feed-tiktok-lead',
+                label: 'Signal feed item → TikTok lead',
+                surface: 'dashboard-signal-feed-list',
+              })}
             />
             <ActivityItem
               icon="💬"
               text="WhatsApp message from Michael Chen"
               time="12 min ago"
-              href="/dashboard/inbox"
+              onClick={() => navigateTo('/dashboard/inbox', {
+                id: 'signal-feed-whatsapp-message',
+                label: 'Signal feed item → WhatsApp thread',
+                surface: 'dashboard-signal-feed-list',
+              })}
             />
             <ActivityItem
               icon="🔥"
               text="Lead qualified as HOT: Sarah Johnson"
               time="28 min ago"
-              href="/dashboard/leads"
+              onClick={() => navigateTo('/dashboard/leads', {
+                id: 'signal-feed-hot-lead',
+                label: 'Signal feed item → Hot lead',
+                surface: 'dashboard-signal-feed-list',
+              })}
             />
             <ActivityItem
               icon="💰"
               text="Invoice paid: R2,999"
               time="1 hour ago"
-              href="/dashboard/invoices"
+              onClick={() => navigateTo('/dashboard/invoices', {
+                id: 'signal-feed-invoice-paid',
+                label: 'Signal feed item → Invoice paid',
+                surface: 'dashboard-signal-feed-list',
+              })}
             />
             <ActivityItem
               icon="⚡"
               text="Auto-responder sent 3 replies"
               time="2 hours ago"
-              href="/dashboard/automations"
+              onClick={() => navigateTo('/dashboard/automations', {
+                id: 'signal-feed-autoresponder',
+                label: 'Signal feed item → Auto-responder',
+                surface: 'dashboard-signal-feed-list',
+              })}
             />
             <ActivityItem
               icon="📦"
               text="Order marked as fulfilled"
               time="3 hours ago"
-              href="/dashboard/delivery"
+              onClick={() => navigateTo('/dashboard/delivery', {
+                id: 'signal-feed-fulfilled-order',
+                label: 'Signal feed item → Delivery order',
+                surface: 'dashboard-signal-feed-list',
+              })}
             />
           </div>
           <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 font-medium">
@@ -846,7 +959,12 @@ export default function DashboardPage() {
             </span>
             <button
               type="button"
-              onClick={() => navigateTo(hotLeadDirective.href)}
+              onClick={() => navigateTo(hotLeadDirective.href, {
+                id: 'directive-hot-leads',
+                label: `Hot lead directive → ${hotLeadDirective.cta}`,
+                surface: 'dashboard-hot-leads',
+                metadata: { status: hotLeadDirective.status },
+              })}
               className="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-300 inline-flex items-center gap-1 hover:gap-2 transition-all"
             >
               {hotLeadDirective.cta}
@@ -864,7 +982,11 @@ export default function DashboardPage() {
             intent="Pricing Inquiry"
             score={95}
             lastContact="5 mins ago"
-            href="/dashboard/leads/lead1"
+            onClick={() => navigateTo('/dashboard/leads/lead1', {
+              id: 'hot-lead-card-sarah',
+              label: 'Hot lead card → Sarah Johnson',
+              surface: 'dashboard-hot-leads-mobile',
+            })}
           />
           <LeadCard
             name="Michael Chen"
@@ -873,7 +995,11 @@ export default function DashboardPage() {
             intent="Demo Request"
             score={92}
             lastContact="12 mins ago"
-            href="/dashboard/leads/lead2"
+            onClick={() => navigateTo('/dashboard/leads/lead2', {
+              id: 'hot-lead-card-michael',
+              label: 'Hot lead card → Michael Chen',
+              surface: 'dashboard-hot-leads-mobile',
+            })}
           />
           <LeadCard
             name="Emma Williams"
@@ -882,7 +1008,11 @@ export default function DashboardPage() {
             intent="Service Question"
             score={88}
             lastContact="23 mins ago"
-            href="/dashboard/leads/lead3"
+            onClick={() => navigateTo('/dashboard/leads/lead3', {
+              id: 'hot-lead-card-emma',
+              label: 'Hot lead card → Emma Williams',
+              surface: 'dashboard-hot-leads-mobile',
+            })}
           />
         </div>
 
@@ -907,7 +1037,11 @@ export default function DashboardPage() {
                 intent="Pricing Inquiry"
                 score={95}
                 lastContact="5 mins ago"
-                href="/dashboard/leads/lead1"
+                onOpen={() => navigateTo('/dashboard/leads/lead1', {
+                  id: 'hot-lead-row-sarah',
+                  label: 'Hot lead row → Sarah Johnson',
+                  surface: 'dashboard-hot-leads-table',
+                })}
               />
               <LeadRow
                 name="Michael Chen"
@@ -916,7 +1050,11 @@ export default function DashboardPage() {
                 intent="Demo Request"
                 score={92}
                 lastContact="12 mins ago"
-                href="/dashboard/leads/lead2"
+                onOpen={() => navigateTo('/dashboard/leads/lead2', {
+                  id: 'hot-lead-row-michael',
+                  label: 'Hot lead row → Michael Chen',
+                  surface: 'dashboard-hot-leads-table',
+                })}
               />
               <LeadRow
                 name="Emma Williams"
@@ -925,7 +1063,11 @@ export default function DashboardPage() {
                 intent="Service Question"
                 score={88}
                 lastContact="23 mins ago"
-                href="/dashboard/leads/lead3"
+                onOpen={() => navigateTo('/dashboard/leads/lead3', {
+                  id: 'hot-lead-row-emma',
+                  label: 'Hot lead row → Emma Williams',
+                  surface: 'dashboard-hot-leads-table',
+                })}
               />
             </tbody>
           </table>
@@ -949,7 +1091,12 @@ export default function DashboardPage() {
             </span>
             <button
               type="button"
-              onClick={() => navigateTo(pipelineDirective.href)}
+              onClick={() => navigateTo(pipelineDirective.href, {
+                id: 'directive-pipeline',
+                label: `Pipeline directive → ${pipelineDirective.cta}`,
+                surface: 'dashboard-pipeline-check',
+                metadata: { status: pipelineDirective.status },
+              })}
               className="text-sm font-semibold text-blue-600 dark:text-blue-300 inline-flex items-center gap-1 hover:gap-2 transition-all"
             >
               {pipelineDirective.cta}
@@ -982,7 +1129,12 @@ export default function DashboardPage() {
             </span>
             <button
               type="button"
-              onClick={() => navigateTo(tutorialDirective.href)}
+              onClick={() => navigateTo(tutorialDirective.href, {
+                id: 'directive-tutorial',
+                label: `Tutorial directive → ${tutorialDirective.cta}`,
+                surface: 'dashboard-platform-tutorial',
+                metadata: { status: tutorialDirective.status },
+              })}
               className="text-sm font-semibold inline-flex items-center gap-1 hover:gap-2 transition-all text-indigo-50"
             >
               {tutorialDirective.cta}
@@ -1011,14 +1163,22 @@ export default function DashboardPage() {
         <div className="mt-6 flex flex-wrap gap-3">
           <button 
             type="button"
-            onClick={() => navigateTo('/dashboard/inbox')}
+            onClick={() => navigateTo('/dashboard/inbox', {
+              id: 'tutorial-approve-inbox',
+              label: 'Tutorial CTA → Approve inbox autopilot',
+              surface: 'dashboard-platform-tutorial',
+            })}
             className="px-4 py-2 bg-white text-purple-600 rounded-lg font-medium hover:bg-gray-100 transition-colors text-sm"
           >
             📥 Approve inbox autopilot
           </button>
           <button 
             type="button"
-            onClick={() => navigateTo('/dashboard/automations')}
+            onClick={() => navigateTo('/dashboard/automations', {
+              id: 'tutorial-expand-automations',
+              label: 'Tutorial CTA → Expand automations',
+              surface: 'dashboard-platform-tutorial',
+            })}
             className="px-4 py-2 bg-white/20 backdrop-blur text-white rounded-lg font-medium hover:bg-white/30 transition-colors text-sm"
           >
             ⚡ Expand automations
@@ -1070,7 +1230,12 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-2">
                             <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-bold">🔥 {lead.score}</span>
                             <button 
-                              onClick={() => router.push('/dashboard/leads')}
+                              onClick={() => navigateTo('/dashboard/leads', {
+                                id: `modal-lead-view-${slugify(lead.name)}`,
+                                label: `Modal lead view → ${lead.name}`,
+                                surface: 'dashboard-leads-modal',
+                                metadata: { source: lead.source },
+                              })}
                               className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-sm font-medium hover:scale-105 transition-all"
                             >
                               View
@@ -1081,7 +1246,14 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   
-                  <button onClick={() => window.location.href = '/dashboard/leads'} className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:scale-105 transition-all">
+                  <button
+                    onClick={() => navigateTo('/dashboard/leads', {
+                      id: 'modal-leads-open-all',
+                      label: 'Modal CTA → Open all leads',
+                      surface: 'dashboard-leads-modal',
+                    })}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:scale-105 transition-all"
+                  >
                     Open all leads →
                   </button>
                 </>
@@ -1104,7 +1276,11 @@ export default function DashboardPage() {
                           <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-bold">{platform.count} unread</span>
                           <button
                             type="button"
-                            onClick={() => handleModalNavigate(platform.path || '/dashboard/inbox')}
+                            onClick={() => handleModalNavigate(platform.path || '/dashboard/inbox', {
+                              id: `modal-messages-${slugify(platform.name || platform.platform || 'channel')}`,
+                              label: `Messages modal → ${platform.name}`,
+                              surface: 'dashboard-messages-modal',
+                            })}
                             className="px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg text-sm font-medium hover:scale-105 transition-all"
                           >
                             Open
@@ -1114,7 +1290,14 @@ export default function DashboardPage() {
                     ))}
                   </div>
                   
-                  <button onClick={() => window.location.href = '/dashboard/inbox'} className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-xl font-semibold hover:scale-105 transition-all">
+                  <button
+                    onClick={() => navigateTo('/dashboard/inbox', {
+                      id: 'modal-messages-jump-inbox',
+                      label: 'Modal CTA → Jump to inbox',
+                      surface: 'dashboard-messages-modal',
+                    })}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-xl font-semibold hover:scale-105 transition-all"
+                  >
                     Jump to inbox →
                   </button>
                 </>
@@ -1146,7 +1329,14 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   
-                  <button onClick={() => window.location.href = '/dashboard/finance'} className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:scale-105 transition-all">
+                  <button
+                    onClick={() => navigateTo('/dashboard/finance', {
+                      id: 'modal-revenue-open-finance',
+                      label: 'Modal CTA → Open finance dashboard',
+                      surface: 'dashboard-revenue-modal',
+                    })}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:scale-105 transition-all"
+                  >
                     Open finance dashboard →
                   </button>
                 </>
@@ -1253,27 +1443,29 @@ function PlatformRow({ platform, platformId, count, total, color }: any) {
 }
 
 // Activity Item Component
-function ActivityItem({ icon, text, time, href }: any) {
+function ActivityItem({ icon, text, time, onClick }: any) {
   return (
-    <a
-      href={href}
-      className="flex items-start gap-3 p-3 glass-button rounded-xl transition-all duration-300 cursor-pointer hover:scale-105"
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-start gap-3 p-3 glass-button rounded-xl transition-all duration-300 cursor-pointer hover:scale-105 text-left w-full"
     >
       <span className="text-xl flex-shrink-0">{icon}</span>
       <div className="flex-1 min-w-0">
         <p className="text-gray-800 dark:text-gray-200 text-sm font-medium">{text}</p>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{time}</p>
       </div>
-    </a>
+    </button>
   )
 }
 
 // Lead Card Component (Mobile)
-function LeadCard({ name, email, source, intent, score, lastContact, href }: any) {
+function LeadCard({ name, email, source, intent, score, lastContact, onClick }: any) {
   return (
-    <a 
-      href={href}
-      className="block p-4 glass-card rounded-2xl transition-all duration-300 hover:scale-105"
+    <button
+      type="button"
+      onClick={onClick}
+      className="block p-4 glass-card rounded-2xl transition-all duration-300 hover:scale-105 text-left w-full"
     >
       <div className="flex items-start justify-between mb-2">
         <div>
@@ -1291,12 +1483,12 @@ function LeadCard({ name, email, source, intent, score, lastContact, href }: any
         </span>
         <span className="text-xs text-gray-500">{lastContact}</span>
       </div>
-    </a>
+    </button>
   )
 }
 
 // Lead Row Component (Desktop)
-function LeadRow({ name, email, source, intent, score, lastContact, href }: any) {
+function LeadRow({ name, email, source, intent, score, lastContact, onOpen }: any) {
   return (
     <tr className="border-b border-white/20 hover:bg-white/30 transition-all">
       <td className="py-3 px-4">
@@ -1316,12 +1508,13 @@ function LeadRow({ name, email, source, intent, score, lastContact, href }: any)
       </td>
       <td className="py-3 px-4 text-sm text-gray-600">{lastContact}</td>
       <td className="py-3 px-4">
-        <a 
-          href={href}
+        <button
+          type="button"
+          onClick={onOpen}
           className="px-3 py-1.5 glass-button rounded-xl text-sm font-medium hover:scale-110 transition-all bg-gradient-to-r from-blue-600 to-purple-600 text-white"
         >
           Open
-        </a>
+        </button>
       </td>
     </tr>
   )

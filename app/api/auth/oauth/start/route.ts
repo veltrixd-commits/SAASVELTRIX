@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { createPkcePair, getGoogleAuthorizationUrl } from '@/lib/oauth/google';
-import { getAppleAuthorizationUrl } from '@/lib/oauth/apple';
+import { createPkcePair, getGoogleAuthorizationUrl, getGoogleConfig } from '@/lib/oauth/google';
+import { getAppleAuthorizationUrl, getAppleConfig } from '@/lib/oauth/apple';
 import { createOAuthStateRecord } from '@/lib/oauth/stateStore';
 import type { OAuthStartRequest, OAuthUserContext } from '@/lib/oauth/types';
 
@@ -37,6 +37,19 @@ function generateNonce() {
   return randomBytes(16).toString('hex');
 }
 
+function ensureProviderConfigured(provider: 'google' | 'apple'): string | null {
+  try {
+    if (provider === 'google') {
+      getGoogleConfig();
+    } else {
+      getAppleConfig();
+    }
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : 'OAuth provider is not fully configured.';
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const payload = (await request.json()) as OAuthStartRequest;
@@ -57,6 +70,11 @@ export async function POST(request: NextRequest) {
 
     if (payload.mode === 'login' && !payload.deviceId) {
       payload.deviceId = randomBytes(8).toString('hex');
+    }
+
+    const providerError = ensureProviderConfigured(payload.provider);
+    if (providerError) {
+      return NextResponse.json({ success: false, message: providerError }, { status: 503 });
     }
 
     let authorizationUrl = '';

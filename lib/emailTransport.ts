@@ -1,4 +1,5 @@
 import nodemailer, { SendMailOptions } from 'nodemailer';
+import SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 // Centralized helpers for sending email with either SMTP or console fallback modes.
 
@@ -60,15 +61,32 @@ export function getEmailTransportState(): EmailTransportState {
 }
 
 function createSmtpTransport() {
-  return nodemailer.createTransport({
+  const port = Number(process.env.SMTP_PORT || 465);
+  const secure = typeof process.env.SMTP_SECURE !== 'undefined'
+    ? process.env.SMTP_SECURE === 'true'
+    : port === 465;
+  const connectionTimeout = Number(process.env.SMTP_CONNECTION_TIMEOUT || 12000);
+  const allowInvalidCerts = process.env.SMTP_ALLOW_INVALID_CERTS === 'true';
+
+  const baseConfig: SMTPTransport.Options = {
     host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
-    secure: Number(process.env.SMTP_PORT) === 465,
+    port,
+    secure,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASSWORD,
     },
-  });
+    connectionTimeout,
+    socketTimeout: connectionTimeout,
+  };
+
+  if (allowInvalidCerts) {
+    baseConfig.tls = {
+      rejectUnauthorized: false,
+    };
+  }
+
+  return nodemailer.createTransport(baseConfig);
 }
 
 export async function deliverEmail(options: SendMailOptions) {

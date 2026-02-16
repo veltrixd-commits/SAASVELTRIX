@@ -15,6 +15,9 @@ import {
   setCurrentUser,
 } from '@/lib/auth';
 
+const GOOGLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true';
+const APPLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_APPLE_OAUTH_ENABLED === 'true';
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -89,7 +92,19 @@ function LoginPageContent() {
     router.push(getPostLoginRoute(authenticatedUser));
   };
 
+  const providerEnabled = (provider: 'google' | 'apple') =>
+    provider === 'google' ? GOOGLE_OAUTH_ENABLED : APPLE_OAUTH_ENABLED;
+
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
+    if (!providerEnabled(provider)) {
+      setError(
+        `${provider === 'google' ? 'Google' : 'Apple'} sign-in is disabled in this environment. Add the provider credentials and set NEXT_PUBLIC_${
+          provider === 'google' ? 'GOOGLE' : 'APPLE'
+        }_OAUTH_ENABLED=true to enable it.`
+      );
+      return;
+    }
+
     try {
       setSocialLoading(provider);
       setError('');
@@ -262,7 +277,7 @@ function LoginPageContent() {
             <button
               type="button"
               onClick={() => handleSocialLogin('google')}
-              disabled={socialLoading !== null}
+              disabled={!GOOGLE_OAUTH_ENABLED || socialLoading !== null}
               className="w-full py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
             >
               {socialLoading === 'google' ? 'Connecting...' : 'Continue with Google'}
@@ -271,12 +286,17 @@ function LoginPageContent() {
             <button
               type="button"
               onClick={() => handleSocialLogin('apple')}
-              disabled={socialLoading !== null}
+              disabled={!APPLE_OAUTH_ENABLED || socialLoading !== null}
               className="w-full py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
             >
               {socialLoading === 'apple' ? 'Connecting...' : 'Continue with Apple'}
             </button>
           </div>
+          {(!GOOGLE_OAUTH_ENABLED || !APPLE_OAUTH_ENABLED) && (
+            <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+              Admin note: enable each provider by adding credentials and setting NEXT_PUBLIC_[PROVIDER]_OAUTH_ENABLED=true.
+            </p>
+          )}
 
           {/* Sign Up Link */}
           <p className="text-center text-sm text-gray-600 dark:text-gray-400">
