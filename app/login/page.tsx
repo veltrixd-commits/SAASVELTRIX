@@ -6,42 +6,108 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { generateDeviceFingerprint } from '@/lib/deviceFingerprint';
 import type { AccountUser } from '@/lib/auth';
-import {
-  authenticate,
-  findUserByTrustedDevice,
-  getPostLoginRoute,
-  migrateLegacyUserIfNeeded,
-  rememberDeviceForUser,
-  setCurrentUser,
-} from '@/lib/auth';
+import { normalizePlan, setCurrentUser } from '@/lib/auth';
 
 const GOOGLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true';
 const APPLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_APPLE_OAUTH_ENABLED === 'true';
+const DEFAULT_PLAN_LABEL = 'Free Trial';
+
+type LoginApiUser = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  tenantId: string;
+  avatar?: string | null;
+  userType?: string;
+};
+
+type LoginApiTenant = {
+  id: string;
+  name: string;
+  slug: string;
+  type: 'AGENCY' | 'BUSINESS';
+  plan: string;
+  maxUsers: number;
+  maxLeads: number;
+  maxAutomations: number;
+} | null;
+
+type LoginResponseBody = {
+  success: boolean;
+  message?: string;
+  user?: LoginApiUser;
+  tenant?: LoginApiTenant;
+  nextRoute?: string;
+};
+
+function formatPlanLabel(plan?: string | null) {
+  if (!plan) return DEFAULT_PLAN_LABEL;
+  return plan
+    .split('_')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
+function mapLoginResponseToAccountUser(
+  payload: Required<Pick<LoginResponseBody, 'user'>> & { tenant?: LoginApiTenant },
+  rememberMe: boolean,
+  deviceId?: string | null
+): AccountUser {
+  const tenant = payload.tenant;
+  const safePlan = tenant?.plan || DEFAULT_PLAN_LABEL;
+  const userType = payload.user.userType === 'employee'
+    ? 'employee'
+    : tenant?.type === 'BUSINESS'
+      ? 'business'
+      : 'individual';
+
+  return {
+    id: payload.user.id,
+    fullName: [payload.user.firstName, payload.user.lastName].filter(Boolean).join(' ') || payload.user.email,
+    email: payload.user.email,
+    password: '',
+    avatar: payload.user.avatar,
+    userType,
+    plan: formatPlanLabel(safePlan),
+    planType: normalizePlan(safePlan),
+    rememberMe,
+    onboardingComplete: true,
+    createdAt: new Date().toISOString(),
+    businessName: tenant?.name,
+    companyName: tenant?.name,
+    deviceId: deviceId || undefined,
+    billingInfo: null,
+    billingSkipped: false,
+    tourStarted: false,
+    tourSkipped: false,
+    authProvider: 'password',
+    socialEmailVerified: true,
+    emailVerified: true,
+    emailVerifiedAt: new Date().toISOString(),
+    trustedDevices: [],
+  };
+}
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    rememberMe: false
+    rememberMe: false,
   });
   const [error, setError] = useState('');
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
   const [deviceFingerprint, setDeviceFingerprint] = useState<string | null>(null);
-  const [trustedSession, setTrustedSession] = useState<{ user: AccountUser; deviceId: string } | null>(null);
 
   useEffect(() => {
-    migrateLegacyUserIfNeeded();
-
     try {
       const fingerprint = generateDeviceFingerprint();
       setDeviceFingerprint(fingerprint);
-      const rememberedUser = findUserByTrustedDevice(fingerprint);
-      if (rememberedUser) {
-        setTrustedSession({ user: rememberedUser, deviceId: fingerprint });
-      }
     } catch (err) {
       console.warn('Device fingerprint unavailable', err);
     }
@@ -49,47 +115,61 @@ function LoginPageContent() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : value,
     }));
     setError('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.email || !formData.password) {
       setError('Please enter both email and password');
       return;
     }
 
-    const result = authenticate(formData.email, formData.password);
-    if (!result.ok || !result.user) {
-      setError(result.error || 'Invalid email or password');
-      return;
-    }
+    setIsSubmitting(true);
+    setError('');
 
-    let authenticatedUser = result.user;
-    const fingerprint = formData.rememberMe
-      ? deviceFingerprint || (() => {
-          const nextFingerprint = generateDeviceFingerprint();
-          setDeviceFingerprint(nextFingerprint);
-          return nextFingerprint;
-        })()
-      : null;
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          rememberMe: formData.rememberMe,
+          deviceId: deviceFingerprint,
+          redirectTo: searchParams.get('redirectTo') || undefined,
+        }),
+      });
 
-    if (formData.rememberMe && fingerprint) {
-      const updated = rememberDeviceForUser(authenticatedUser.id, fingerprint);
-      if (updated) {
-        authenticatedUser = updated;
+      const data = (await response.json()) as LoginResponseBody;
+      if (!response.ok || !data.success || !data.user) {
+        throw new Error(data?.message || 'Invalid email or password');
       }
+
+      const mappedUser = mapLoginResponseToAccountUser(
+        { user: data.user, tenant: data.tenant },
+        formData.rememberMe,
+        deviceFingerprint
+      );
+
+      setCurrentUser(mappedUser);
+
+      const target = data.nextRoute || searchParams.get('redirectTo') || '/dashboard';
+      router.push(target);
+      router.refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to log in. Please try again.';
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setCurrentUser({ ...authenticatedUser, rememberMe: formData.rememberMe });
-    setTrustedSession(null);
-
-    router.push(getPostLoginRoute(authenticatedUser));
   };
 
   const providerEnabled = (provider: 'google' | 'apple') =>
@@ -142,13 +222,6 @@ function LoginPageContent() {
     }
   };
 
-  const handleTrustedContinue = () => {
-    if (!trustedSession) return;
-    const refreshed = rememberDeviceForUser(trustedSession.user.id, trustedSession.deviceId) || trustedSession.user;
-    setCurrentUser({ ...refreshed, rememberMe: true });
-    router.push(getPostLoginRoute(refreshed));
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
@@ -162,32 +235,8 @@ function LoginPageContent() {
           </p>
         </div>
 
-        {trustedSession && (
-          <div className="glass-card rounded-xl sm:rounded-2xl p-4 sm:p-5 mb-6 border border-blue-200 dark:border-blue-900/40 bg-white/70 dark:bg-gray-900/60">
-            <p className="text-sm text-gray-700 dark:text-gray-200">
-              We recognize this device as <span className="font-semibold">{trustedSession.user.fullName}</span>. Skip the sign-in form and jump back into your workspace.
-            </p>
-            <div className="mt-4 flex flex-col sm:flex-row gap-3">
-              <button
-                type="button"
-                onClick={handleTrustedContinue}
-                className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:scale-105 transition-all"
-              >
-                Go to dashboard
-              </button>
-              <button
-                type="button"
-                onClick={() => setTrustedSession(null)}
-                className="flex-1 py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Use a different account
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="glass-card rounded-xl sm:rounded-2xl p-5 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
+        <form onSubmit={handleSubmit} className="glass-card rounded-xl sm:rounded-2xl p-5 sm:space-y-6 space-y-4 lg:p-8">
           {error && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
               <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -259,9 +308,10 @@ function LoginPageContent() {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-2xl"
+            disabled={isSubmitting}
+            className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-2xl disabled:opacity-70"
           >
-            Log In
+            {isSubmitting ? 'Signing in...' : 'Log In'}
           </button>
 
           <div className="relative">
