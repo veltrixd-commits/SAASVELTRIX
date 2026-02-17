@@ -1,9 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 // Lead API Routes
 // CRUD operations for leads
 
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { getUserFromToken } from '@/lib/auth'
+import { getUserFromToken } from '@/lib/server-auth'
 
 // GET /api/leads - List all leads
 export async function GET(request: NextRequest) {

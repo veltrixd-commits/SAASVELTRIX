@@ -1,9 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 // Single Lead API Routes
 // Get, Update, Delete individual lead
 
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { getUserFromToken, canAccessTenant } from '@/lib/auth'
+import { getUserFromToken, canAccessTenant } from '@/lib/server-auth'
 
 // For static export compatibility
 export function generateStaticParams() {

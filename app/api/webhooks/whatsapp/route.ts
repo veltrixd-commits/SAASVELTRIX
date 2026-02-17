@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // WhatsApp Webhook Handler
 // Receives WhatsApp messages (Meta Business API format)
 

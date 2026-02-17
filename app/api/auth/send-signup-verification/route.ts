@@ -1,10 +1,38 @@
+export const dynamic = 'force-dynamic';
+
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { createSignupVerification, SignupVerificationPayload } from '@/lib/signupVerificationStore';
+import { SignupVerificationStatus } from '@prisma/client';
+import prisma from '@/lib/db';
+import { hashPassword } from '@/lib/server-auth';
 import { deliverEmail, getEmailTransportState } from '@/lib/emailTransport';
 
-type VerificationRequestPayload = SignupVerificationPayload & {
+type VerificationRequestPayload = {
+  fullName: string;
+  email: string;
+  userType: 'business' | 'employee' | 'creator' | 'individual';
+  plan: string;
+  planType: string;
+  businessName?: string;
+  employerCode?: string;
+  contentNiche?: string;
+  provider: 'password' | 'google' | 'apple';
+  password?: string;
+  deviceId: string;
+  requestedAt?: string;
+  rememberDevice?: boolean;
   origin?: string;
 };
+
+const TOKEN_TTL_MS = Number(process.env.SIGNUP_VERIFICATION_TTL_MS || 30 * 60 * 1000);
+
+function normalizePlanType(value?: string): 'free_trial' | 'professional' | 'scale' | 'enterprise' {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'professional') return 'professional';
+  if (normalized === 'scale') return 'scale';
+  if (normalized === 'enterprise') return 'enterprise';
+  return 'free_trial';
+}
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -24,12 +52,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Missing required signup fields.' }, { status: 400 });
     }
 
+    const normalizedEmail = payload.email.trim().toLowerCase();
+    const normalizedPlanType = normalizePlanType(payload.planType);
+
     if (payload.provider === 'password' && !payload.password) {
       return NextResponse.json({ success: false, message: 'Password is required for password signup.' }, { status: 400 });
     }
 
     if (!isValidEmail(payload.email)) {
       return NextResponse.json({ success: false, message: 'Invalid email address.' }, { status: 400 });
+    }
+
+    if (!payload.deviceId) {
+      return NextResponse.json({ success: false, message: 'Device fingerprint missing from signup request.' }, { status: 400 });
     }
 
     const emailState = getEmailTransportState();
@@ -40,19 +75,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { token, expiresAt } = createSignupVerification({
-      fullName: payload.fullName,
-      email: payload.email.trim().toLowerCase(),
-      userType: payload.userType,
-      plan: payload.plan,
-      planType: payload.planType,
-      businessName: payload.businessName,
-      employerCode: payload.employerCode,
-      contentNiche: payload.contentNiche,
-      provider: payload.provider,
-      password: payload.password,
-      deviceId: payload.deviceId,
-      requestedAt: payload.requestedAt || new Date().toISOString(),
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (existingUser) {
+      return NextResponse.json(
+        { success: false, message: 'An account with this email already exists. Please sign in instead.' },
+        { status: 409 }
+      );
+    }
+
+    const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
+    const token = randomUUID();
+    const passwordHash =
+      payload.provider === 'password' && payload.password ? await hashPassword(payload.password) : null;
+
+    await prisma.signupVerification.deleteMany({
+      where: {
+        email: normalizedEmail,
+        status: SignupVerificationStatus.PENDING,
+      },
+    });
+
+    await prisma.signupVerification.create({
+      data: {
+        token,
+        email: normalizedEmail,
+        fullName: payload.fullName.trim(),
+        userType: payload.userType,
+        plan: payload.plan,
+        planType: normalizedPlanType,
+        provider: payload.provider,
+        passwordHash,
+        businessName: payload.businessName,
+        employerCode: payload.employerCode,
+        contentNiche: payload.contentNiche,
+        deviceId: payload.deviceId,
+        rememberDevice: Boolean(payload.rememberDevice),
+        metadata: {
+          requestedAt: payload.requestedAt || new Date().toISOString(),
+          origin: payload.origin,
+        },
+        expiresAt,
+      },
     });
 
     const baseUrl = getAppOrigin(payload.origin);
@@ -88,7 +151,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Verification email sent.',
-      expiresAt,
+      expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to send verification email.';

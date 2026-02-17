@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeGoogleCodeForTokens, fetchGoogleProfile } from '@/lib/oauth/google';
 import { exchangeAppleCodeForTokens, parseAppleIdentity } from '@/lib/oauth/apple';

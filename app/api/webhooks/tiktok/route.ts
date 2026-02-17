@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 // TikTok Webhook Handler
 // Receives TikTok Lead Forms and Direct Messages
 
