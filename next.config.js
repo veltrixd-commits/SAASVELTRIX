@@ -3,14 +3,35 @@ const nextConfig = {
   reactStrictMode: true,
 
   images: {
-    domains: [
-      'localhost',
-      'scontent.cdninstagram.com',
-      'scontent.xx.fbcdn.net',
-      'pbs.twimg.com',
-      'media.licdn.com',
-      'p16-sign-va.tiktokcdn.com',
-      'p16-sign.tiktokcdn-us.com',
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+      {
+        protocol: 'https',
+        hostname: 'scontent.cdninstagram.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'scontent.xx.fbcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'pbs.twimg.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'media.licdn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'p16-sign-va.tiktokcdn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'p16-sign.tiktokcdn-us.com',
+      },
     ],
   },
 };

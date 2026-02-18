@@ -1,7 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { LeadSource } from '@prisma/client';
-import { getPrisma } from '@/lib/server/prisma';
-import { verifyToken } from '@/lib/server-auth';
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import type { LeadSource } from '@prisma/client';
+
+type InboxDependencies = {
+  getPrisma: typeof import('@/lib/server/prisma').getPrisma;
+  verifyToken: typeof import('@/lib/server-auth').verifyToken;
+};
+
+let dependencyPromise: Promise<InboxDependencies> | null = null;
+
+async function loadInboxDependencies(): Promise<InboxDependencies> {
+  if (!dependencyPromise) {
+    dependencyPromise = Promise.all([
+      import('@/lib/server/prisma'),
+      import('@/lib/server-auth'),
+    ]).then(([prismaModule, authModule]) => ({
+      getPrisma: prismaModule.getPrisma,
+      verifyToken: authModule.verifyToken,
+    }));
+  }
+  return dependencyPromise;
+}
 
 /**
  * GET /api/inbox
@@ -10,6 +32,7 @@ import { verifyToken } from '@/lib/server-auth';
  */
 export async function GET(request: NextRequest) {
   try {
+    const { getPrisma, verifyToken } = await loadInboxDependencies();
     // Verify authentication
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) {
@@ -169,6 +192,7 @@ export async function GET(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
+    const { getPrisma, verifyToken } = await loadInboxDependencies();
     // Verify authentication
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) {
