@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 type Provider = 'fitbit' | 'oura' | 'whoop';
 
+type RouteContext = {
+  params: Promise<{ provider: string }>;
+};
+
 export async function generateStaticParams() {
   return [
     { provider: 'fitbit' },
@@ -146,8 +150,9 @@ async function exchange(provider: Provider, req: NextRequest, code: string, code
   return response.json();
 }
 
-export async function GET(req: NextRequest, { params }: { params: { provider: string } }) {
-  const provider = params.provider as Provider;
+export async function GET(req: NextRequest, context: RouteContext) {
+  const { provider: providerParam } = await context.params;
+  const provider = providerParam as Provider;
 
   if (!['fitbit', 'oura', 'whoop'].includes(provider)) {
     return new NextResponse(

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { LeadSource } from '@prisma/client';
 import { db } from '@/lib/db';
 import { verifyToken } from '@/lib/server-auth';
 
@@ -27,6 +28,9 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status'); // unread, read, replied
     const leadId = searchParams.get('leadId');
     const search = searchParams.get('search');
+    const platformFilter = platform
+      ? (platform.toUpperCase() as LeadSource)
+      : undefined;
     
     // Pagination
     const page = parseInt(searchParams.get('page') || '1');
@@ -40,10 +44,10 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    if (platform) {
+    if (platformFilter) {
       where.conversation = {
         ...where.conversation,
-        platform,
+        platform: platformFilter,
       };
     }
 
@@ -63,7 +67,7 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.OR = [
         { content: { contains: search, mode: 'insensitive' } },
-        { lead: { name: { contains: search, mode: 'insensitive' } } },
+        { lead: { fullName: { contains: search, mode: 'insensitive' } } },
         { lead: { email: { contains: search, mode: 'insensitive' } } },
       ];
     }
@@ -78,19 +82,12 @@ export async function GET(request: NextRequest) {
               lead: {
                 select: {
                   id: true,
-                  name: true,
+                  fullName: true,
                   email: true,
                   phone: true,
                   avatar: true,
                   status: true,
-                  source: true,
-                },
-              },
-              platformAccount: {
-                select: {
-                  platformUserId: true,
-                  username: true,
-                  displayName: true,
+                  primarySource: true,
                 },
               },
             },
@@ -116,19 +113,16 @@ export async function GET(request: NextRequest) {
       _count: true,
     });
 
-    // Get platform breakdown
-    const platformStats = await db.message.groupBy({
-      by: ['direction'],
+    const last24HourMessages = await db.message.count({
       where: {
         conversation: {
           tenantId: payload.tenantId,
-          platform: platform || undefined,
+          platform: platformFilter,
         },
         createdAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
         },
       },
-      _count: true,
     });
 
     return NextResponse.json({
@@ -142,9 +136,7 @@ export async function GET(request: NextRequest) {
           status: msg.status,
           isRead: !!msg.readAt,
           createdAt: msg.createdAt,
-          updatedAt: msg.updatedAt,
           lead: msg.conversation.lead,
-          platformAccount: msg.conversation.platformAccount,
           conversationId: msg.conversationId,
           metadata: msg.metadata,
         })),
@@ -156,7 +148,7 @@ export async function GET(request: NextRequest) {
         },
         stats: {
           totalUnread: unreadCounts.length,
-          last24Hours: platformStats.reduce((sum, stat) => sum + stat._count, 0),
+          last24Hours: last24HourMessages,
         },
       },
     });

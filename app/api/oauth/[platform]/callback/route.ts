@@ -6,6 +6,10 @@ type Platform = 'tiktok' | 'instagram' | 'facebook' | 'whatsapp' | 'linkedin' | 
 
 const SUPPORTED: Platform[] = ['tiktok', 'instagram', 'facebook', 'whatsapp', 'linkedin', 'twitter'];
 
+type RouteContext = {
+  params: Promise<{ platform: string }>;
+};
+
 export async function generateStaticParams() {
   return SUPPORTED.map(platform => ({ platform }));
 }
@@ -225,8 +229,9 @@ async function fetchProfile(platform: Platform, accessToken: string) {
   return {};
 }
 
-export async function GET(req: NextRequest, { params }: { params: { platform: string } }) {
-  const platform = params.platform as Platform;
+export async function GET(req: NextRequest, context: RouteContext) {
+  const { platform: platformParam } = await context.params;
+  const platform = platformParam as Platform;
   const code = req.nextUrl.searchParams.get('code');
   const state = req.nextUrl.searchParams.get('state');
   const error = req.nextUrl.searchParams.get('error');

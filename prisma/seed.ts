@@ -9,8 +9,10 @@ import {
   MessageDirection,
   MessageStatus,
   ActivityType,
+  SubscriptionStatus,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { PLAN_SEED_DATA } from '../lib/subscriptionPlans';
 
 const prisma = new PrismaClient();
 
@@ -18,8 +20,98 @@ const DEMO_SLUG = 'demo-agency';
 const DEMO_EMAIL = 'demo@veltrix.com';
 const DEMO_PASSWORD = 'demo123';
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+const addDays = (anchor: Date, days: number) => new Date(anchor.getTime() + days * DAY_IN_MS);
+
+async function seedSubscriptionPlans() {
+  console.log('⚙️  Syncing subscription plans & entitlements...');
+  for (const record of PLAN_SEED_DATA) {
+    const planPayload = record.plan;
+
+    const plan = await prisma.subscriptionPlan.upsert({
+      where: { code: planPayload.code },
+      update: {
+        name: planPayload.name,
+        description: planPayload.description,
+        priceCents: planPayload.priceCents,
+        currency: planPayload.currency,
+        interval: planPayload.interval,
+        trialDays: planPayload.trialDays,
+        maxUsers: planPayload.maxUsers,
+        maxLeads: planPayload.maxLeads,
+        maxAutomations: planPayload.maxAutomations,
+        metadata: planPayload.metadata,
+        active: true,
+      },
+      create: {
+        code: planPayload.code,
+        name: planPayload.name,
+        description: planPayload.description,
+        priceCents: planPayload.priceCents,
+        currency: planPayload.currency,
+        interval: planPayload.interval,
+        trialDays: planPayload.trialDays,
+        maxUsers: planPayload.maxUsers,
+        maxLeads: planPayload.maxLeads,
+        maxAutomations: planPayload.maxAutomations,
+        metadata: planPayload.metadata,
+        active: true,
+      },
+    });
+
+    await prisma.planEntitlement.deleteMany({ where: { planId: plan.id } });
+
+    if (record.entitlements.length > 0) {
+      await prisma.planEntitlement.createMany({
+        data: record.entitlements.map((entitlement) => ({
+          planId: plan.id,
+          feature: entitlement.feature,
+          unit: entitlement.unit ?? null,
+          limitValue: typeof entitlement.limitValue === 'number' ? entitlement.limitValue : null,
+          isEnabled: entitlement.isEnabled,
+          metadata: entitlement.metadata ?? null,
+        })),
+      });
+    }
+  }
+}
+
+async function ensureDemoSubscription(tenantId: string) {
+  const plan = await prisma.subscriptionPlan.findUnique({ where: { code: 'scale' } });
+
+  if (!plan) {
+    console.warn('⚠️  Missing "scale" plan – skipping subscription seed');
+    return;
+  }
+
+  await prisma.subscription.deleteMany({ where: { tenantId } });
+
+  const now = new Date();
+  const periodEnd = addDays(now, plan.interval === 'YEARLY' ? 365 : 30);
+  const trialEndsAt = plan.trialDays ? addDays(now, plan.trialDays) : null;
+
+  await prisma.subscription.create({
+    data: {
+      tenantId,
+      planId: plan.id,
+      status: SubscriptionStatus.ACTIVE,
+      trialEndsAt,
+      currentPeriodStart: now,
+      currentPeriodEnd: periodEnd,
+      nextInvoiceAt: periodEnd,
+      metadata: {
+        seeded: true,
+        planCode: plan.code,
+      },
+    },
+  });
+}
+
 async function main() {
   console.log('🌱 Seeding Veltrix platform data...');
+
+  await seedSubscriptionPlans();
 
   // Ensure idempotent runs by clearing the demo tenant first
   await prisma.tenant.deleteMany({ where: { slug: DEMO_SLUG } });
@@ -344,6 +436,8 @@ async function main() {
       metadata: { automationId: automation.id, actions: 3 },
     },
   });
+
+  await ensureDemoSubscription(tenant.id);
 
   console.log('✅ Seed completed successfully!');
   console.log('🔐 Demo login');

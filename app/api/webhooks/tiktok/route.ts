@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { createTikTokClient } from '@/lib/messaging/providers/tiktok'
 import { triggerLeadCreated, triggerMessageReceived } from '@/lib/automation-engine/engine'
-import { triggerAutoResponse } from '@/lib/automation/auto-responder'
+import { autoResponder } from '@/lib/automation/auto-responder'
 
 export async function GET(request: NextRequest) {
   // Webhook verification
@@ -67,7 +67,18 @@ export async function POST(request: NextRequest) {
           
           // Trigger auto-responder
           if (result.message && result.message.id) {
-            await triggerAutoResponse(tenantId, result.message.id)
+            const autoResult = await autoResponder({
+              tenantId,
+              leadId: result.lead?.id,
+              channel: 'tiktok',
+              message: result.message.content ?? '',
+              metadata: { event: value },
+            })
+
+            if (autoResult.shouldReply) {
+              console.log('[auto-responder] TikTok suggestion', autoResult)
+              // TODO: send autoResult.replyText via TikTok DM client when ready
+            }
           }
         }
       }

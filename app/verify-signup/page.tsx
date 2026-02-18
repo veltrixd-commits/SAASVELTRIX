@@ -4,39 +4,15 @@ export const dynamic = 'force-dynamic';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, Loader2, MailWarning } from 'lucide-react';
-import type { AccountUser } from '@/lib/auth';
-import {
-  createAccount,
-  createOrLoginSocialAccount,
-  normalizePlan,
-  rememberDeviceForUser,
-  setCurrentUser,
-} from '@/lib/auth';
-import {
-  checkDeviceRegistered,
-  checkEmailRegistered,
-  registerDevice,
-  registerEmail,
-} from '@/lib/deviceFingerprint';
-import { requestCompanyAccess } from '@/lib/companyRegistry';
 import {
   clearPendingSignupVerification,
   getPendingSignupVerification,
 } from '@/lib/pendingSignupVerification';
 
-type VerifiedSignupPayload = {
-  fullName: string;
-  email: string;
-  userType: 'business' | 'employee' | 'creator' | 'individual';
-  plan: string;
-  planType: 'free_trial' | 'professional' | 'scale' | 'enterprise';
-  businessName?: string;
-  employerCode?: string;
-  contentNiche?: string;
-  provider: 'password' | 'google' | 'apple';
-  password?: string;
-  deviceId: string;
-  rememberDevice?: boolean;
+type CompleteSignupResponse = {
+  success: boolean;
+  message?: string;
+  nextRoute?: string;
 };
 
 function VerifySignupContent() {
@@ -59,153 +35,25 @@ function VerifySignupContent() {
       }
 
       try {
-        const completeResponse = await fetch('/api/auth/complete-signup-verification', {
+        const response = await fetch('/api/auth/complete-signup-verification', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token }),
         });
 
-        const completeData = await completeResponse.json();
-        if (!completeResponse.ok || !completeData?.success || !completeData?.signup) {
-          throw new Error(completeData?.message || 'Failed to verify this signup link.');
+        const data: CompleteSignupResponse = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data?.message || 'Failed to verify this signup link.');
         }
-
-        const signup = completeData.signup as VerifiedSignupPayload;
-        const normalizedPlan = normalizePlan(signup.plan || 'Free Trial');
-        const isTrial = normalizedPlan === 'free_trial';
-
-        if (isTrial) {
-          if (checkDeviceRegistered(signup.deviceId)) {
-            throw new Error('This device has already been used for a trial account. Use a paid plan or contact support.');
-          }
-
-          if (checkEmailRegistered(signup.email)) {
-            throw new Error('This email has already been used for a trial account.');
-          }
-        }
-
-        let pendingEmployeeRequest: any = undefined;
-        let companyName: string | undefined;
-        let companyApproved = false;
-
-        if (signup.userType === 'employee' && signup.employerCode) {
-          const accessRequest = requestCompanyAccess(signup.employerCode, signup.email, signup.fullName);
-          if (!accessRequest.success) {
-            throw new Error(accessRequest.error || 'Failed to request company access.');
-          }
-
-          companyName = accessRequest.company?.name;
-          pendingEmployeeRequest = {
-            companyName,
-            employerCode: signup.employerCode,
-            status: 'pending',
-            requestedAt: new Date().toISOString(),
-            verificationCode: accessRequest.verificationCode,
-          };
-        }
-
-        let activeUser: AccountUser | null = null;
-
-        if (signup.provider === 'password') {
-          if (!signup.password) {
-            throw new Error('Signup data is missing password. Please register again.');
-          }
-
-          const created = createAccount({
-            fullName: signup.fullName,
-            email: signup.email,
-            password: signup.password,
-            userType: signup.userType,
-            plan: signup.plan,
-            planType: normalizedPlan,
-            rememberMe: false,
-            onboardingComplete: false,
-            businessName: signup.businessName,
-            employerCode: signup.employerCode,
-            contentNiche: signup.contentNiche,
-            companyApproved,
-            companyName,
-            pendingEmployeeRequest,
-            deviceId: signup.deviceId,
-            onboardingStep: 'business-details',
-            authProvider: 'password',
-            emailVerified: true,
-            emailVerifiedAt: new Date().toISOString(),
-          });
-
-          if (!created.ok || !created.user) {
-            throw new Error(created.error || 'Failed to complete signup.');
-          }
-
-          activeUser = created.user;
-        } else {
-          const socialResult = createOrLoginSocialAccount({
-            email: signup.email,
-            fullName: signup.fullName,
-            provider: signup.provider,
-            userType: signup.userType,
-            plan: signup.plan,
-            planType: normalizedPlan,
-            businessName: signup.businessName,
-            employerCode: signup.employerCode,
-            contentNiche: signup.contentNiche,
-            companyApproved,
-            companyName,
-            pendingEmployeeRequest,
-            onboardingStep: 'business-details',
-          });
-
-          if (!socialResult.ok || !socialResult.user) {
-            throw new Error(socialResult.error || 'Failed to complete social signup.');
-          }
-
-          activeUser = socialResult.user;
-        }
-
-        if (activeUser && signup.rememberDevice && signup.deviceId) {
-          const trusted = rememberDeviceForUser(activeUser.id, signup.deviceId);
-          if (trusted) {
-            activeUser = trusted;
-          }
-        }
-
-        if (activeUser) {
-          setCurrentUser(activeUser);
-        }
-
-        if (isTrial) {
-          registerDevice(signup.deviceId);
-          registerEmail(signup.email);
-        }
-
-        await fetch('/api/auth/send-welcome-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: signup.email,
-            fullName: signup.fullName,
-            userType: signup.userType,
-          }),
-        });
 
         if (cancelled) return;
-
         clearPendingSignupVerification();
-
         setStatus('success');
-        setMessage('Email verified and signup completed. Redirecting...');
+        setMessage('Email verified. Redirecting you to your workspace...');
 
         setTimeout(() => {
-          if (signup.userType === 'employee') {
-            router.push('/waiting-approval');
-          } else {
-            router.push('/onboarding/business-details');
-          }
-        }, 1100);
+          router.push(data.nextRoute || '/onboarding/business-details');
+        }, 1200);
       } catch (error) {
         if (cancelled) return;
         setStatus('error');

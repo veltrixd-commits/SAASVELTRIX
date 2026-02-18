@@ -57,10 +57,7 @@ export default function DashboardPage() {
     contentPublished: 12,
     motivationLevel: 92,
   });
-
-  if (typeof window === 'undefined') {
-    return null;
-  }
+  const isServer = typeof window === 'undefined';
 
   useEffect(() => {
     // Auto-hide welcome banner after 2 seconds
@@ -105,7 +102,7 @@ export default function DashboardPage() {
       + automationReviews.length;
 
     const runningAutomations = automations.filter((automation) => automation?.isActive).length;
-    const totalRevenue = sales.reduce((sum, sale) => sum + Number(sale.amount || 0), 0);
+    const totalRevenue = sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
     const pendingOrders = orders.filter((order) => {
       const status = String(order?.status || '').toLowerCase();
       return status === 'pending' || status === 'processing';
@@ -462,6 +459,10 @@ export default function DashboardPage() {
         break;
     }
   }, [stats]);
+
+  if (isServer) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">

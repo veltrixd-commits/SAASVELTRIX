@@ -2,11 +2,22 @@
 // Smart lead qualification using GPT-4
 
 import OpenAI from 'openai'
-import prisma from '../db'
+import { db } from '../db'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+let openaiClient: OpenAI | null = null
+
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not configured')
+  }
+
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey })
+  }
+
+  return openaiClient
+}
 
 interface ClassificationResult {
   intent: string
@@ -18,7 +29,7 @@ interface ClassificationResult {
 
 export async function classifyLead(leadId: string): Promise<ClassificationResult> {
   // Get lead with conversation history
-  const lead = await prisma.lead.findUnique({
+  const lead = await db.lead.findUnique({
     where: { id: leadId },
     include: {
       conversations: {
@@ -41,6 +52,7 @@ export async function classifyLead(leadId: string): Promise<ClassificationResult
   const context = buildLeadContext(lead)
 
   // Call GPT-4 for classification
+  const openai = getOpenAIClient()
   const completion = await openai.chat.completions.create({
     model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
     messages: [
@@ -111,6 +123,7 @@ Analyze this lead and provide classification.
 
 // Detect intent from message
 export async function detectIntent(message: string): Promise<string> {
+  const openai = getOpenAIClient()
   const completion = await openai.chat.completions.create({
     model: 'gpt-3.5-turbo',
     messages: [
@@ -131,6 +144,7 @@ export async function detectIntent(message: string): Promise<string> {
 
 // Analyze sentiment
 export async function analyzeSentiment(message: string): Promise<string> {
+  const openai = getOpenAIClient()
   const completion = await openai.chat.completions.create({
     model: 'gpt-3.5-turbo',
     messages: [

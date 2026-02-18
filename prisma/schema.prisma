@@ -28,6 +28,13 @@ enum TenantType {
   BUSINESS  // Single business
 }
 
+enum SignupVerificationStatus {
+  PENDING
+  VERIFIED
+  EXPIRED
+  CANCELLED
+}
+
 model Tenant {
   id        String   @id @default(cuid())
   name      String
@@ -56,8 +63,39 @@ model Tenant {
   automations   Automation[]
   conversations Conversation[]
   integrations  Integration[]
+  subscriptions Subscription[]
+  paymentMethods PaymentMethod[]
+  paymentIntents PaymentIntent[]
   
   @@index([slug])
+}
+
+model SignupVerification {
+  id             String                     @id @default(cuid())
+  token          String                     @unique
+  email          String
+  fullName       String
+  userType       String
+  plan           String
+  planType       String
+  provider       String
+  passwordHash   String?
+  businessName   String?
+  employerCode   String?
+  contentNiche   String?
+  deviceId       String?
+  rememberDevice Boolean                    @default(false)
+  metadata       Json?
+  status         SignupVerificationStatus   @default(PENDING)
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  tenantId       String?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  @@index([email])
+  @@index([token])
+  @@index([status, expiresAt])
 }
 
 model User {
@@ -578,6 +616,214 @@ model Appointment {
 // ============================================
 // PAYMENTS & INVOICING
 // ============================================
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+  INCOMPLETE
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum PaymentProvider {
+  STRIPE
+  PAYSTACK
+  PAYFAST
+  MANUAL
+}
+
+enum PaymentMethodType {
+  CARD
+  EFT
+  CASH
+  MANUAL
+}
+
+enum PaymentIntentStatus {
+  PENDING
+  REQUIRES_ACTION
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum SubscriptionInvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+model SubscriptionPlan {
+  id            String            @id @default(cuid())
+  code          String            @unique
+  name          String
+  description   String?
+  priceCents    Int               @default(0)
+  currency      String            @default("ZAR")
+  interval      BillingInterval   @default(MONTHLY)
+  trialDays     Int               @default(0)
+  maxUsers      Int               @default(5)
+  maxLeads      Int               @default(1000)
+  maxAutomations Int              @default(10)
+  metadata      Json?
+  active        Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  subscriptions Subscription[]
+  entitlements  PlanEntitlement[]
+
+  @@index([active])
+}
+
+model PlanEntitlement {
+  id        String           @id @default(cuid())
+  planId    String
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature   String
+  unit      String?
+  limitValue Int?
+  isEnabled Boolean          @default(true)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  @@unique([planId, feature])
+  @@index([planId])
+}
+
+model PaymentMethod {
+  id               String           @id @default(cuid())
+  tenantId         String
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type             PaymentMethodType
+  provider         PaymentProvider  @default(MANUAL)
+  providerMethodId String?
+  brand            String?
+  last4            String?
+  expMonth         Int?
+  expYear          Int?
+  country          String?
+  billingName      String?
+  billingEmail     String?
+  billingPhone     String?
+  billingAddress   Json?
+  fingerprint      String?
+  isDefault        Boolean          @default(false)
+  metadata         Json?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  subscriptions Subscription[]      @relation("PaymentMethodSubscriptions")
+  paymentIntents PaymentIntent[]    @relation("PaymentMethodPaymentIntents")
+
+  @@index([tenantId])
+  @@index([isDefault])
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  tenantId           String
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId             String
+  plan               SubscriptionPlan   @relation(fields: [planId], references: [id])
+  status             SubscriptionStatus @default(TRIALING)
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime           @default(now())
+  currentPeriodEnd   DateTime           @default(now())
+  cancelAtPeriodEnd  Boolean            @default(false)
+  canceledAt         DateTime?
+  billingAnchor      Int?
+  nextInvoiceAt      DateTime?
+  paymentMethodId    String?
+  paymentMethod      PaymentMethod?     @relation("PaymentMethodSubscriptions", fields: [paymentMethodId], references: [id])
+  metadata           Json?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  invoices       SubscriptionInvoice[]  @relation("SubscriptionInvoices")
+  usageRecords   SubscriptionUsage[]
+  paymentIntents PaymentIntent[]        @relation("SubscriptionPaymentIntents")
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+model SubscriptionUsage {
+  id             String        @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  feature        String
+  currentValue   Int           @default(0)
+  limitValue     Int?
+  periodStart    DateTime      @default(now())
+  periodEnd      DateTime      @default(now())
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([subscriptionId, feature, periodStart])
+  @@index([subscriptionId])
+}
+
+model SubscriptionInvoice {
+  id             String                    @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription              @relation("SubscriptionInvoices", fields: [subscriptionId], references: [id], onDelete: Cascade)
+  invoiceNumber  String                    @unique
+  amountCents    Int
+  currency       String                    @default("ZAR")
+  status         SubscriptionInvoiceStatus @default(DRAFT)
+  billingPeriodStart DateTime?
+  billingPeriodEnd   DateTime?
+  dueDate        DateTime?
+  paidAt         DateTime?
+  hostedUrl      String?
+  pdfUrl         String?
+  lineItems      Json?
+  metadata       Json?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  paymentIntents PaymentIntent[]          @relation("SubscriptionInvoicePaymentIntents")
+
+  @@index([subscriptionId])
+  @@index([status])
+}
+
+model PaymentIntent {
+  id              String             @id @default(cuid())
+  tenantId        String
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscriptionId  String?
+  subscription    Subscription?      @relation("SubscriptionPaymentIntents", fields: [subscriptionId], references: [id])
+  invoiceId       String?
+  invoice         SubscriptionInvoice? @relation("SubscriptionInvoicePaymentIntents", fields: [invoiceId], references: [id])
+  paymentMethodId String?
+  paymentMethod   PaymentMethod?     @relation("PaymentMethodPaymentIntents", fields: [paymentMethodId], references: [id])
+  amountCents     Int
+  currency        String             @default("ZAR")
+  provider        PaymentProvider    @default(MANUAL)
+  providerIntentId String?
+  status          PaymentIntentStatus @default(PENDING)
+  requiresAction  Boolean            @default(false)
+  clientSecret    String?
+  lastError       String?
+  metadata        Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@index([subscriptionId])
+  @@index([status])
+}
 
 model Invoice {
   id          String   @id @default(cuid())

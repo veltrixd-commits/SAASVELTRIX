@@ -17,9 +17,7 @@ import {
 } from '@/lib/companyRegistry';
 
 export default function SettingsPage() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
+  const isServer = typeof window === 'undefined';
   const [activeTab, setActiveTab] = useState<'profile' | 'business' | 'notifications' | 'integrations' | 'privacy' | 'billing' | 'security' | 'advanced'>('profile');
   const [userData, setUserData] = useState<any>(null);
   const [settings, setSettings] = useState({
@@ -208,6 +206,10 @@ export default function SettingsPage() {
     };
     return types[userData.userType] || 'User';
   };
+
+  if (isServer) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">

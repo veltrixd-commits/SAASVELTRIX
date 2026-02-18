@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { createWhatsAppClient } from '@/lib/messaging/providers/whatsapp'
 import { triggerMessageReceived } from '@/lib/automation-engine/engine'
-import { triggerAutoResponse } from '@/lib/automation/auto-responder'
+import { autoResponder } from '@/lib/automation/auto-responder'
 
 export async function GET(request: NextRequest) {
   // Webhook verification
@@ -57,7 +57,19 @@ export async function POST(request: NextRequest) {
             
             // Trigger auto-responder
             if (result.message && result.message.id) {
-              await triggerAutoResponse(tenantId, result.message.id)
+              const autoResult = await autoResponder({
+                tenantId,
+                leadId: result.lead?.id,
+                channel: 'whatsapp',
+                message: result.message.content ?? messageData.body ?? '',
+                from: message.from,
+                metadata: { providerPayload: value },
+              })
+
+              if (autoResult.shouldReply) {
+                console.log('[auto-responder] WhatsApp suggestion', autoResult)
+                // TODO: send autoResult.replyText via WhatsApp provider when ready
+              }
             }
           }
         }

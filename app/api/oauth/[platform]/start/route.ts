@@ -7,6 +7,10 @@ type Platform = 'tiktok' | 'instagram' | 'facebook' | 'whatsapp' | 'linkedin' | 
 
 const SUPPORTED: Platform[] = ['tiktok', 'instagram', 'facebook', 'whatsapp', 'linkedin', 'twitter'];
 
+type RouteContext = {
+  params: Promise<{ platform: string }>;
+};
+
 export async function generateStaticParams() {
   return SUPPORTED.map(platform => ({ platform }));
 }
@@ -120,8 +124,9 @@ function buildAuthUrl(platform: Platform, req: NextRequest, state: string, codeV
   return url.toString();
 }
 
-export async function POST(req: NextRequest, { params }: { params: { platform: string } }) {
-  const platform = params.platform as Platform;
+export async function POST(req: NextRequest, context: RouteContext) {
+  const { platform: platformParam } = await context.params;
+  const platform = platformParam as Platform;
 
   if (!SUPPORTED.includes(platform)) {
     return NextResponse.json({ error: 'Unsupported OAuth platform.' }, { status: 400 });

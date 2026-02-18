@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 type Provider = 'fitbit' | 'oura' | 'whoop';
 
+type RouteContext = {
+  params: Promise<{ provider: string }>;
+};
+
 export async function generateStaticParams() {
   return [
     { provider: 'fitbit' },
@@ -88,8 +92,9 @@ async function syncWhoop(accessToken: string) {
   };
 }
 
-export async function POST(req: NextRequest, { params }: { params: { provider: string } }) {
-  const provider = params.provider as Provider;
+export async function POST(req: NextRequest, context: RouteContext) {
+  const { provider: providerParam } = await context.params;
+  const provider = providerParam as Provider;
 
   if (!['fitbit', 'oura', 'whoop'].includes(provider)) {
     return NextResponse.json({ error: 'Unsupported wearable provider.' }, { status: 400 });

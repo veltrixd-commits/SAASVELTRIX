@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import AIChatbot from '@/components/AIChatbot';
 import IdeaRecorderWidget from '@/components/ideas/IdeaRecorderWidget';
-import { getCurrentUserPermissions, getCurrentUserType, getFeatureLabel, getCurrentPlanType } from '@/lib/accessControl';
+import { getCurrentUserType, getFeatureLabel } from '@/lib/accessControl';
 import { getCurrentUser, getPostLoginRoute, isAuthenticated, signOut } from '@/lib/auth';
 import { AvatarImage } from '@/components/AvatarImage';
 import { 
@@ -39,6 +39,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { initializeDemoData } from '@/lib/demoData';
+import { useSubscription } from '@/lib/subscription-context';
 
 const POS_STOREFRONT_STORAGE_KEY = 'posStorefrontMode';
 const POS_STOREFRONT_EVENT = 'pos-storefront-mode-change';
@@ -56,8 +57,6 @@ export default function DashboardLayout({
   const [searchQuery, setSearchQuery] = useState('');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [userType, setUserType] = useState<'business' | 'employee' | 'creator' | 'individual'>('business');
-  const [planType, setPlanType] = useState<'free_trial' | 'professional' | 'scale' | 'enterprise'>('free_trial');
-  const [permissions, setPermissions] = useState(getCurrentUserPermissions());
   const [hasAccess, setHasAccess] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
@@ -69,6 +68,7 @@ export default function DashboardLayout({
   const [storefrontMode, setStorefrontMode] = useState(false);
   const isPosRoute = pathname?.startsWith('/dashboard/pos');
   const kioskActive = Boolean(storefrontMode && isPosRoute);
+  const { planType, permissions } = useSubscription();
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -97,15 +97,10 @@ export default function DashboardLayout({
     setHasAccess(true);
   }, [router]);
 
-  // Load user type and permissions
+  // Load user type and optional demo data toggle
   useEffect(() => {
-    const type = getCurrentUserType();
-    const plan = getCurrentPlanType();
-    const perms = getCurrentUserPermissions();
-    setUserType(type);
-    setPlanType(plan);
-    setPermissions(perms);
-    
+    setUserType(getCurrentUserType());
+
     const shouldInitDemo = localStorage.getItem('enableDemoData') === 'true';
     if (shouldInitDemo) {
       initializeDemoData();

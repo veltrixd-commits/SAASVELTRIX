@@ -7,6 +7,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { getUserFromToken, canAccessTenant } from '@/lib/server-auth'
 
+type RouteContext = {
+  params: Promise<{ id: string }>
+}
+
 // For static export compatibility
 export function generateStaticParams() {
   return []
@@ -15,9 +19,10 @@ export function generateStaticParams() {
 // GET /api/leads/[id] - Get single lead with full details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
+    const { id } = await context.params
     const token = request.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -29,7 +34,7 @@ export async function GET(
     }
 
     const lead = await prisma.lead.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         platformAccounts: true,
         assignedTo: {
@@ -102,9 +107,10 @@ export async function GET(
 // PATCH /api/leads/[id] - Update lead
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
+    const { id } = await context.params
     const token = request.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -117,7 +123,7 @@ export async function PATCH(
 
     // Check if lead exists and user has access
     const existingLead = await prisma.lead.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingLead) {
@@ -132,7 +138,7 @@ export async function PATCH(
 
     // Update lead
     const lead = await prisma.lead.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         fullName: body.fullName,
         email: body.email,
@@ -178,9 +184,10 @@ export async function PATCH(
 // DELETE /api/leads/[id] - Delete lead
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
+    const { id } = await context.params
     const token = request.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -193,7 +200,7 @@ export async function DELETE(
 
     // Check if lead exists and user has access
     const lead = await prisma.lead.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!lead) {
@@ -206,7 +213,7 @@ export async function DELETE(
 
     // Delete lead (cascade will handle related records)
     await prisma.lead.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ success: true })

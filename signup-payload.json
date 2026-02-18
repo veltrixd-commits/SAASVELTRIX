@@ -1,0 +1,9 @@
+{
+  "email": "newuser@example.com",
+  "fullName": "API Tester",
+  "userType": "business",
+  "plan": "Scale",
+  "planType": "scale",
+  "provider": "password",
+  "password": "Secret123!"
+}

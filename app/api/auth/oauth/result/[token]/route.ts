@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { consumeOAuthResult } from '@/lib/oauth/resultStore';
 
-export async function GET(_request: NextRequest, context: { params: { token: string } }) {
-  const token = context.params?.token;
+type RouteContext = {
+  params: Promise<{ token: string }>;
+};
+
+export async function GET(_request: NextRequest, context: RouteContext) {
+  const { token } = await context.params;
   if (!token) {
     return NextResponse.json({ success: false, message: 'Missing OAuth result token.' }, { status: 400 });
   }

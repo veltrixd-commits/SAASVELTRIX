@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
     
     // Filter parameters
     const status = searchParams.get('status'); // pending, fulfilled, cancelled
-    const assignedTo = searchParams.get('assignedTo');
     const search = searchParams.get('search');
     
     // Pagination
@@ -34,7 +33,9 @@ export async function GET(request: NextRequest) {
 
     // Build where clause for deals (orders)
     const where: any = {
-      tenantId: payload.tenantId,
+      lead: {
+        tenantId: payload.tenantId,
+      },
     };
 
     // Filter by fulfillment status
@@ -55,14 +56,11 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    if (assignedTo) {
-      where.assignedToId = assignedTo;
-    }
 
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
-        { lead: { name: { contains: search, mode: 'insensitive' } } },
+        { lead: { fullName: { contains: search, mode: 'insensitive' } } },
         { lead: { email: { contains: search, mode: 'insensitive' } } },
       ];
     }
@@ -75,7 +73,7 @@ export async function GET(request: NextRequest) {
           lead: {
             select: {
               id: true,
-              name: true,
+              fullName: true,
               email: true,
               phone: true,
               avatar: true,
@@ -94,21 +92,6 @@ export async function GET(request: NextRequest) {
               name: true,
             },
           },
-          assignedTo: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          invoices: {
-            select: {
-              id: true,
-              amount: true,
-              status: true,
-              dueDate: true,
-            },
-          },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -117,22 +100,12 @@ export async function GET(request: NextRequest) {
       db.deal.count({ where }),
     ]);
 
-    // Get status breakdown
-    const statusStats = await db.deal.groupBy({
-      by: ['stageId'],
-      where: {
-        tenantId: payload.tenantId,
-      },
-      _count: true,
-      _sum: {
-        value: true,
-      },
-    });
-
     // Calculate fulfillment metrics
     const pendingOrders = await db.deal.count({
       where: {
-        tenantId: payload.tenantId,
+        lead: {
+          tenantId: payload.tenantId,
+        },
         metadata: {
           path: ['fulfillmentStatus'],
           equals: 'pending',
@@ -142,7 +115,9 @@ export async function GET(request: NextRequest) {
 
     const fulfilledOrders = await db.deal.count({
       where: {
-        tenantId: payload.tenantId,
+        lead: {
+          tenantId: payload.tenantId,
+        },
         metadata: {
           path: ['fulfillmentStatus'],
           equals: 'fulfilled',
@@ -153,24 +128,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        orders: orders.map((order) => ({
-          id: order.id,
-          title: order.title,
-          value: order.value,
-          currency: order.currency,
-          stage: order.stage,
-          pipeline: order.pipeline,
-          lead: order.lead,
-          assignedTo: order.assignedTo,
-          invoices: order.invoices,
-          fulfillmentStatus: order.metadata?.fulfillmentStatus || 'pending',
-          fulfillmentDate: order.metadata?.fulfillmentDate || null,
-          trackingNumber: order.metadata?.trackingNumber || null,
-          deliveryNotes: order.metadata?.deliveryNotes || null,
-          createdAt: order.createdAt,
-          updatedAt: order.updatedAt,
-          expectedDelivery: order.expectedCloseDate,
-        })),
+        orders: orders.map((order) => {
+          const metadata = (order.metadata as Record<string, any> | null) || {};
+          return {
+            id: order.id,
+            title: order.title,
+            value: order.value,
+            currency: order.currency,
+            stage: order.stage,
+            pipeline: order.pipeline,
+            lead: order.lead,
+            fulfillmentStatus: metadata.fulfillmentStatus || 'pending',
+            fulfillmentDate: metadata.fulfillmentDate || null,
+            trackingNumber: metadata.trackingNumber || null,
+            deliveryNotes: metadata.deliveryNotes || null,
+            createdAt: order.createdAt,
+            updatedAt: order.updatedAt,
+            expectedDelivery: order.expectedCloseDate,
+          };
+        }),
         pagination: {
           page,
           limit,
@@ -222,7 +198,9 @@ export async function PATCH(request: NextRequest) {
     const deal = await db.deal.findFirst({
       where: {
         id: orderId,
-        tenantId: payload.tenantId,
+        lead: {
+          tenantId: payload.tenantId,
+        },
       },
     });
 
@@ -246,23 +224,22 @@ export async function PATCH(request: NextRequest) {
       include: {
         lead: true,
         stage: true,
-        assignedTo: true,
       },
     });
 
     // Create activity log
     await db.activity.create({
       data: {
-        tenantId: payload.tenantId,
+        title: 'Delivery status update',
         leadId: updatedDeal.leadId,
-        type: 'DEAL_UPDATED',
+        type: 'STATUS_CHANGE',
         description: `Order fulfillment status updated to: ${fulfillmentStatus}`,
         metadata: {
           orderId,
           fulfillmentStatus,
           trackingNumber,
         },
-        performedBy: payload.userId,
+        userId: payload.userId,
       },
     });
 

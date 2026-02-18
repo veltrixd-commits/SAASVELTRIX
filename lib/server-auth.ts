@@ -1,14 +1,13 @@
 // Authentication & Authorization System
 // JWT-based with role-based access control
 
-import jwt from 'jsonwebtoken'
+import jwt, { type Secret, type SignOptions, type JwtPayload } from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { UserRole } from '@prisma/client'
-import prisma from './db'
+import { db } from './db'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secure-secret'
+const JWT_SECRET: Secret = process.env.JWT_SECRET || 'your-super-secure-secret'
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
-
 export interface TokenPayload {
   userId: string
   email: string
@@ -38,9 +37,10 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 
 // Generate JWT token
 export function generateToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN,
-  })
+  const options: SignOptions = {
+    expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'],
+  }
+  return jwt.sign(payload as JwtPayload, JWT_SECRET, options)
 }
 
 // Verify JWT token
@@ -62,7 +62,7 @@ export async function registerUser(data: {
   role?: UserRole
 }) {
   // Check if user exists
-  const existing = await prisma.user.findUnique({
+  const existing = await db.user.findUnique({
     where: { email: data.email },
   })
 
@@ -74,7 +74,7 @@ export async function registerUser(data: {
   const hashedPassword = await hashPassword(data.password)
 
   // Create user
-  const user = await prisma.user.create({
+  const user = await db.user.create({
     data: {
       email: data.email,
       password: hashedPassword,
@@ -100,7 +100,7 @@ export async function registerUser(data: {
 // Login user
 export async function loginUser(email: string, password: string) {
   // Find user
-  const user = await prisma.user.findUnique({
+  const user = await db.user.findUnique({
     where: { email },
     include: {
       tenant: {
@@ -138,7 +138,7 @@ export async function loginUser(email: string, password: string) {
   }
 
   // Update last login
-  await prisma.user.update({
+  await db.user.update({
     where: { id: user.id },
     data: { lastLogin: new Date() },
   })
@@ -171,7 +171,7 @@ export async function getUserFromToken(token: string): Promise<AuthUser | null> 
   const payload = verifyToken(token)
   if (!payload) return null
 
-  const user = await prisma.user.findUnique({
+  const user = await db.user.findUnique({
     where: { id: payload.userId },
     select: {
       id: true,

@@ -55,6 +55,16 @@ const ACTIVE_USER_KEY = 'userData';
 const ACTIVE_USER_ID_KEY = 'veltrix_active_user_id';
 const SELECTED_PLAN_KEY = 'selectedPlan';
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const AUTH_CHANGE_EVENT = 'veltrix:auth-change';
+
+function emitAuthChange(detail?: Record<string, unknown>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent(AUTH_CHANGE_EVENT, { detail }));
+  } catch (error) {
+    console.warn('Failed to emit auth change event', error);
+  }
+}
 
 export function normalizePlan(plan?: string): PlanType {
   const value = (plan || '').trim().toLowerCase();
@@ -73,6 +83,7 @@ export function getSelectedPlan(): string {
 export function setSelectedPlan(planLabel: string): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(SELECTED_PLAN_KEY, planLabel);
+  emitAuthChange({ type: 'plan-selected', planLabel });
 }
 
 function filterActiveTrustedDevices(devices?: TrustedDevice[]): TrustedDevice[] {
@@ -273,6 +284,7 @@ export function setCurrentUser(user: AccountUser): void {
   localStorage.setItem(ACTIVE_USER_KEY, JSON.stringify(user));
   localStorage.setItem(ACTIVE_USER_ID_KEY, user.id);
   localStorage.setItem(AUTH_KEY, 'true');
+  emitAuthChange({ type: 'user-updated', userId: user.id });
 }
 
 export function signOut(): void {
@@ -280,6 +292,7 @@ export function signOut(): void {
   localStorage.removeItem(ACTIVE_USER_KEY);
   localStorage.removeItem(ACTIVE_USER_ID_KEY);
   localStorage.removeItem(AUTH_KEY);
+  emitAuthChange({ type: 'sign-out' });
 }
 
 export function updateCurrentUser(updates: Partial<AccountUser>): AccountUser | null {

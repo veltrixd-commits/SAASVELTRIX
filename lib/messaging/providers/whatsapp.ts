@@ -2,11 +2,9 @@
 // Supports: Meta Business API, Twilio, WATI, or custom providers
 
 import axios, { AxiosInstance } from 'axios'
-// import {LeadSource } from '@prisma/client'
-// import prisma from '../db'
+import { LeadSource } from '@prisma/client'
+import { db } from '@/lib/db'
 
-// Local type definition
-type LeadSource = 'TIKTOK' | 'WHATSAPP' | 'INSTAGRAM' | 'FACEBOOK' | 'WEBSITE' | 'OTHER'
 type WhatsAppProvider = 'meta' | 'twilio' | 'wati' | 'custom'
 
 interface WhatsAppConfig {
@@ -77,7 +75,7 @@ export class WhatsAppClient {
     const phone = message.from.replace(/[^\d]/g, '')
 
     // Find or create lead by phone
-    let lead = await prisma.lead.findFirst({
+    let lead = await db.lead.findFirst({
       where: {
         tenantId,
         OR: [
@@ -96,7 +94,7 @@ export class WhatsAppClient {
 
     if (!lead) {
       // Create new lead
-      lead = await prisma.lead.create({
+      lead = await db.lead.create({
         data: {
           fullName: phone, // Will be updated later
           phone,
@@ -115,7 +113,7 @@ export class WhatsAppClient {
       // Check if WhatsApp source exists
       const hasWhatsApp = lead.sources.includes(LeadSource.WHATSAPP)
       if (!hasWhatsApp) {
-        await prisma.lead.update({
+        await db.lead.update({
           where: { id: lead.id },
           data: {
             sources: [...lead.sources, LeadSource.WHATSAPP],
@@ -125,7 +123,7 @@ export class WhatsAppClient {
     }
 
     // Get or create conversation
-    let conversation = await prisma.conversation.findFirst({
+    let conversation = await db.conversation.findFirst({
       where: {
         leadId: lead.id,
         platform: LeadSource.WHATSAPP,
@@ -133,7 +131,7 @@ export class WhatsAppClient {
     })
 
     if (!conversation) {
-      conversation = await prisma.conversation.create({
+      conversation = await db.conversation.create({
         data: {
           leadId: lead.id,
           platform: LeadSource.WHATSAPP,
@@ -143,7 +141,7 @@ export class WhatsAppClient {
     }
 
     // Store message
-    const storedMessage = await prisma.message.create({
+    const storedMessage = await db.message.create({
       data: {
         conversationId: conversation.id,
         direction: 'INBOUND',
@@ -157,7 +155,7 @@ export class WhatsAppClient {
     })
 
     // Update conversation
-    await prisma.conversation.update({
+    await db.conversation.update({
       where: { id: conversation.id },
       data: {
         lastMessage: message.body,
@@ -167,7 +165,7 @@ export class WhatsAppClient {
     })
 
     // Update lead
-    await prisma.lead.update({
+    await db.lead.update({
       where: { id: lead.id },
       data: {
         lastContactAt: new Date(),

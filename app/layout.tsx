@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { Providers } from './providers'
 
 export const metadata: Metadata = {
   title: 'Veltrix Automation Platform',
@@ -20,7 +21,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">{children}</body>
+      <body className="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   )
 }
