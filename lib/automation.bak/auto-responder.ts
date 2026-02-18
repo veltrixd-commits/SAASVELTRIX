@@ -1,4 +1,4 @@
-import { db } from '@/lib/db';
+import { getPrisma } from '@/lib/server/prisma';
 import { sendUnifiedMessage } from '@/lib/messaging/unified-inbox';
 import { detectIntent, analyzeSentiment } from '@/lib/ai/classifier';
 
@@ -33,8 +33,10 @@ export class AutoResponder {
    */
   async processMessage(messageId: string): Promise<boolean> {
     try {
+      const prisma = await getPrisma();
+
       // Fetch message with context
-      const message = await db.message.findUnique({
+      const message = await prisma.message.findUnique({
         where: { id: messageId },
         include: {
           conversation: {
@@ -66,7 +68,7 @@ export class AutoResponder {
       }
 
       // Check if we already responded recently (avoid spam)
-      const recentResponse = await db.message.findFirst({
+      const recentResponse = await prisma.message.findFirst({
         where: {
           conversationId: message.conversationId,
           direction: 'OUTBOUND',
@@ -114,7 +116,7 @@ export class AutoResponder {
       });
 
       // Log activity
-      await db.activity.create({
+      await prisma.activity.create({
         data: {
           tenantId: this.tenantId,
           leadId: message.conversation.lead.id,
@@ -246,8 +248,10 @@ export class AutoResponder {
  */
 export async function initializeAutoResponder(tenantId: string): Promise<AutoResponder | null> {
   try {
+    const prisma = await getPrisma();
+
     // Fetch tenant's auto-responder configuration
-    const integration = await db.integration.findFirst({
+    const integration = await prisma.integration.findFirst({
       where: {
         tenantId,
         provider: 'AUTO_RESPONDER',

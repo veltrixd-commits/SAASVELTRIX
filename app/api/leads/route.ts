@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 // CRUD operations for leads
 
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/db'
+import { getPrisma } from '@/lib/server/prisma'
 import { getUserFromToken } from '@/lib/server-auth'
 
 // GET /api/leads - List all leads
@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
+
+    const prisma = await getPrisma()
 
     // Get query parameters
     const searchParams = request.nextUrl.searchParams
@@ -109,6 +111,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+
+    const prisma = await getPrisma()
 
     // Create lead
     const lead = await prisma.lead.create({

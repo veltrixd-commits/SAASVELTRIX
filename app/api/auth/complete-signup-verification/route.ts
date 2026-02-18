@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { randomBytes } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma, SignupVerificationStatus, TenantType, UserRole } from '@prisma/client';
-import prisma from '@/lib/db';
+import { getPrisma } from '@/lib/server/prisma';
 import { deliverEmail } from '@/lib/emailTransport';
 import { generateToken, hashPassword } from '@/lib/server-auth';
 
@@ -88,6 +88,8 @@ export async function POST(request: NextRequest) {
     if (!token) {
       return NextResponse.json({ success: false, message: 'Missing verification token.' }, { status: 400 });
     }
+
+    const prisma = await getPrisma();
 
     const verification = await prisma.signupVerification.findUnique({ where: { token } });
 

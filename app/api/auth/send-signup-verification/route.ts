@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { SignupVerificationStatus } from '@prisma/client';
-import prisma from '@/lib/db';
+import { getPrisma } from '@/lib/server/prisma';
 import { hashPassword } from '@/lib/server-auth';
 import { deliverEmail, getEmailTransportState } from '@/lib/emailTransport';
 
@@ -66,6 +66,8 @@ export async function POST(request: NextRequest) {
     if (!payload.deviceId) {
       return NextResponse.json({ success: false, message: 'Device fingerprint missing from signup request.' }, { status: 400 });
     }
+
+    const prisma = await getPrisma();
 
     const emailState = getEmailTransportState();
     if (!emailState.ready) {

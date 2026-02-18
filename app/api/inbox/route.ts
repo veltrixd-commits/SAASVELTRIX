@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LeadSource } from '@prisma/client';
-import { db } from '@/lib/db';
+import { getPrisma } from '@/lib/server/prisma';
 import { verifyToken } from '@/lib/server-auth';
 
 /**
@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
     if (!payload) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
+
+    const prisma = await getPrisma();
 
     const { searchParams } = new URL(request.url);
     
@@ -74,7 +76,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch messages with related data
     const [messages, totalCount] = await Promise.all([
-      db.message.findMany({
+      prisma.message.findMany({
         where,
         include: {
           conversation: {
@@ -97,11 +99,11 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
       }),
-      db.message.count({ where }),
+      prisma.message.count({ where }),
     ]);
 
     // Get unread counts by platform
-    const unreadCounts = await db.message.groupBy({
+    const unreadCounts = await prisma.message.groupBy({
       by: ['conversationId'],
       where: {
         conversation: {
@@ -113,7 +115,7 @@ export async function GET(request: NextRequest) {
       _count: true,
     });
 
-    const last24HourMessages = await db.message.count({
+    const last24HourMessages = await prisma.message.count({
       where: {
         conversation: {
           tenantId: payload.tenantId,
@@ -189,7 +191,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Update messages
-    await db.message.updateMany({
+    const prisma = await getPrisma();
+
+    await prisma.message.updateMany({
       where: {
         id: { in: messageIds },
         conversation: {

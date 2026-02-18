@@ -3,7 +3,7 @@
 
 import axios, { AxiosInstance } from 'axios'
 import { LeadSource } from '@prisma/client'
-import { db } from '@/lib/db'
+import { getPrisma } from '@/lib/server/prisma'
 
 
 interface TikTokConfig {
@@ -58,8 +58,10 @@ export class TikTokClient {
       return acc
     }, {} as Record<string, string>)
 
+    const prisma = await getPrisma()
+
     // Get or create lead
-    let lead = await db.lead.findFirst({
+    let lead = await prisma.lead.findFirst({
       where: {
         tenantId,
         platformAccounts: {
@@ -76,7 +78,7 @@ export class TikTokClient {
 
     if (!lead) {
       // Create new lead
-      lead = await db.lead.create({
+      lead = await prisma.lead.create({
         data: {
           fullName: fields.name || fields.full_name || 'TikTok User',
           email: fields.email || null,
@@ -105,7 +107,7 @@ export class TikTokClient {
       // Update existing lead - merge sources
       const sources = Array.from(new Set([...lead.sources, LeadSource.TIKTOK]))
       
-      lead = await db.lead.update({
+      lead = await prisma.lead.update({
         where: { id: lead.id },
         data: {
           sources,
@@ -122,7 +124,7 @@ export class TikTokClient {
     }
 
     // Log activity
-    await db.activity.create({
+    await prisma.activity.create({
       data: {
         type: 'MESSAGE',
         title: 'TikTok Lead Form Submitted',
@@ -137,8 +139,10 @@ export class TikTokClient {
 
   // Process incoming DM
   async processDirectMessage(message: TikTokMessage, tenantId: string) {
+    const prisma = await getPrisma()
+
     // Find or create lead
-    let lead = await db.lead.findFirst({
+    let lead = await prisma.lead.findFirst({
       where: {
         tenantId,
         platformAccounts: {
@@ -152,7 +156,7 @@ export class TikTokClient {
 
     if (!lead) {
       // Create new lead from DM
-      lead = await db.lead.create({
+      lead = await prisma.lead.create({
         data: {
           fullName: 'TikTok User',
           primarySource: LeadSource.TIKTOK,
@@ -169,7 +173,7 @@ export class TikTokClient {
     }
 
     // Get or create conversation
-    let conversation = await db.conversation.findFirst({
+    let conversation = await prisma.conversation.findFirst({
       where: {
         leadId: lead.id,
         platform: LeadSource.TIKTOK,
@@ -177,7 +181,7 @@ export class TikTokClient {
     })
 
     if (!conversation) {
-      conversation = await db.conversation.create({
+      conversation = await prisma.conversation.create({
         data: {
           leadId: lead.id,
           platform: LeadSource.TIKTOK,
@@ -190,7 +194,7 @@ export class TikTokClient {
     }
 
     // Store message
-    const storedMessage = await db.message.create({
+    const storedMessage = await prisma.message.create({
       data: {
         conversationId: conversation.id,
         direction: 'INBOUND',
@@ -204,7 +208,7 @@ export class TikTokClient {
     })
 
     // Update conversation
-    await db.conversation.update({
+    await prisma.conversation.update({
       where: { id: conversation.id },
       data: {
         lastMessage: message.content,
@@ -214,7 +218,7 @@ export class TikTokClient {
     })
 
     // Update lead
-    await db.lead.update({
+    await prisma.lead.update({
       where: { id: lead.id },
       data: {
         lastContactAt: new Date(),

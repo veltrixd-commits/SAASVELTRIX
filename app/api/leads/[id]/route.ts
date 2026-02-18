@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 // Get, Update, Delete individual lead
 
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/db'
+import { getPrisma } from '@/lib/server/prisma'
 import { getUserFromToken, canAccessTenant } from '@/lib/server-auth'
 
 type RouteContext = {
@@ -32,6 +32,8 @@ export async function GET(
     if (!user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
+
+    const prisma = await getPrisma()
 
     const lead = await prisma.lead.findUnique({
       where: { id },
@@ -121,6 +123,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
+    const prisma = await getPrisma()
+
     // Check if lead exists and user has access
     const existingLead = await prisma.lead.findUnique({
       where: { id },
@@ -197,6 +201,8 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
+
+    const prisma = await getPrisma()
 
     // Check if lead exists and user has access
     const lead = await prisma.lead.findUnique({

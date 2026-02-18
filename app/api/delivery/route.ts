@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { getPrisma } from '@/lib/server/prisma';
 import { verifyToken } from '@/lib/server-auth';
 
 /**
@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
     if (!payload) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
+
+    const prisma = await getPrisma();
 
     const { searchParams } = new URL(request.url);
     
@@ -70,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch deals with related data
     const [orders, totalCount] = await Promise.all([
-      db.deal.findMany({
+      prisma.deal.findMany({
         where,
         include: {
           lead: {
@@ -100,11 +102,11 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
       }),
-      db.deal.count({ where }),
+      prisma.deal.count({ where }),
     ]);
 
     // Calculate fulfillment metrics
-    const pendingOrders = await db.deal.count({
+    const pendingOrders = await prisma.deal.count({
       where: {
         lead: {
           tenantId: payload.tenantId,
@@ -116,7 +118,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const fulfilledOrders = await db.deal.count({
+    const fulfilledOrders = await prisma.deal.count({
       where: {
         lead: {
           tenantId: payload.tenantId,
@@ -198,7 +200,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Get current deal
-    const deal = await db.deal.findFirst({
+    const prisma = await getPrisma();
+
+    const deal = await prisma.deal.findFirst({
       where: {
         id: orderId,
         lead: {
@@ -212,7 +216,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Update deal metadata with fulfillment info
-    const updatedDeal = await db.deal.update({
+    const updatedDeal = await prisma.deal.update({
       where: { id: orderId },
       data: {
         metadata: {
@@ -231,7 +235,7 @@ export async function PATCH(request: NextRequest) {
     });
 
     // Create activity log
-    await db.activity.create({
+    await prisma.activity.create({
       data: {
         title: 'Delivery status update',
         leadId: updatedDeal.leadId,
