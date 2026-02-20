@@ -497,7 +497,7 @@ export default function IdeasPage() {
         {/* Save Idea Modal */}
         {showTitleModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full shadow-2xl">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Save Your Idea</h2>
               </div>

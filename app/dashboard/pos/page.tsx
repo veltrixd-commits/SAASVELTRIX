@@ -1,7 +1,7 @@
 // Point of Sale System - On-the-spot sales
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useDeferredValue } from 'react';
+import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react';
 import { ShoppingCart, Search, CreditCard, Banknote, Smartphone, Printer, X, Plus, Minus, Trash2, DollarSign, Receipt, Clock, Zap, Wallet, QrCode, Lock, Package } from 'lucide-react';
 import { getCurrentUserPermissions, getCurrentUserType } from '@/lib/accessControl';
 import { getPosCatalogSnapshot, getSalesHistory, recordPosSale, getPosSyncStatus } from '@/lib/commerceData';
@@ -28,6 +28,7 @@ const VAT_RATE = 0.15;
 export default function POSPage() {
   const [activeTab, setActiveTab] = useState<'sale' | 'history'>('sale');
   const [cart, setCart] = useState<CartItem[]>([]);
+  const cartRef = useRef<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [salesHistory, setSalesHistory] = useState<CommerceSale[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -211,36 +212,35 @@ export default function POSPage() {
     });
   }, [normalizedCatalogQuery, products]);
 
+  // Keep cartRef in sync so addToCart can read current cart synchronously
+  useEffect(() => { cartRef.current = cart; }, [cart]);
+
   const addToCart = useCallback(
     (product: Product) => {
-      let itemAdded = false;
-      setCart((prevCart) => {
-        const existingItem = prevCart.find((item) => item.id === product.id);
-        const maxStock = typeof product.stock === 'number' ? product.stock : 999;
+      const maxStock = typeof product.stock === 'number' ? product.stock : 999;
+      const existingItem = cartRef.current.find((item) => item.id === product.id);
 
-        if (existingItem) {
-          if (existingItem.quantity >= maxStock) {
-            announceBanner('warning', `${product.name} reached the available stock limit.`);
-            return prevCart;
-          }
-          itemAdded = true;
-          return prevCart.map((item) =>
+      if (existingItem) {
+        if (existingItem.quantity >= maxStock) {
+          announceBanner('warning', `${product.name} reached the available stock limit.`);
+          return;
+        }
+        setCart((prev) =>
+          prev.map((item) =>
             item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-          );
-        }
-
-        if (maxStock <= 0) {
-          announceBanner('warning', `${product.name} is currently out of stock.`);
-          return prevCart;
-        }
-
-        itemAdded = true;
-        return [...prevCart, { ...product, quantity: 1 }];
-      });
-
-      if (itemAdded) {
+          )
+        );
         setShowPaymentModal(true);
+        return;
       }
+
+      if (maxStock <= 0) {
+        announceBanner('warning', `${product.name} is currently out of stock.`);
+        return;
+      }
+
+      setCart((prev) => [...prev, { ...product, quantity: 1 }]);
+      setShowPaymentModal(true);
     },
     [announceBanner]
   );

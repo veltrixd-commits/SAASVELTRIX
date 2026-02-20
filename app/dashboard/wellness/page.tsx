@@ -504,8 +504,8 @@ export default function WellnessPage() {
       )}
 
       <div className="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-900/20">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900 dark:text-white">Real-Time Wearable Sync</p>
             <p className="text-xs text-gray-600 dark:text-gray-400">
               Fitbit/Oura/WHOOP refresh on interval. Apple/Samsung refresh on import.
@@ -523,11 +523,11 @@ export default function WellnessPage() {
             {liveSyncError && (
               <p className="text-xs text-red-600 dark:text-red-400 mt-1">{liveSyncError}</p>
             )}
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <select
                 value={String(liveSyncIntervalMs)}
                 onChange={(e) => setLiveSyncIntervalMs(parseInt(e.target.value, 10))}
-                className="rounded border border-emerald-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-emerald-700 dark:bg-gray-800 dark:text-gray-300"
+                className="rounded border border-emerald-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-emerald-700 dark:bg-gray-800 dark:text-gray-300 max-w-[145px]"
               >
                 <option value="15000">Sync every 15s</option>
                 <option value="30000">Sync every 30s</option>
@@ -537,7 +537,7 @@ export default function WellnessPage() {
               <select
                 value={String(staleAfterMs)}
                 onChange={(e) => setStaleAfterMs(parseInt(e.target.value, 10))}
-                className="rounded border border-emerald-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-emerald-700 dark:bg-gray-800 dark:text-gray-300"
+                className="rounded border border-emerald-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-emerald-700 dark:bg-gray-800 dark:text-gray-300 max-w-[145px]"
               >
                 <option value="120000">Stale after 2m</option>
                 <option value="300000">Stale after 5m</option>
@@ -548,7 +548,7 @@ export default function WellnessPage() {
           </div>
           <button
             onClick={() => setLiveSyncEnabled((prev) => !prev)}
-            className={`rounded-lg px-3 py-2 text-xs font-semibold text-white ${
+            className={`flex-shrink-0 self-start rounded-lg px-3 py-2 text-xs font-semibold text-white ${
               liveSyncEnabled ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-500 hover:bg-gray-600'
             }`}
           >
