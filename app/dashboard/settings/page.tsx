@@ -147,6 +147,19 @@ export default function SettingsPage() {
     }
   }, []);
 
+  // Apply a theme choice to the DOM and persist it in the 'theme' key
+  // (the same key the dashboard layout reads on boot).
+  const applyTheme = (choice: 'light' | 'dark' | 'auto') => {
+    const resolved =
+      choice === 'auto'
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light'
+        : choice;
+    document.documentElement.classList.toggle('dark', resolved === 'dark');
+    localStorage.setItem('theme', resolved);
+  };
+
   const handleSave = () => {
     // Validate revenue before saving
     if (settings.monthlyRevenue && revenueError) {
@@ -157,6 +170,9 @@ export default function SettingsPage() {
     localStorage.setItem('userSettings', JSON.stringify(settings));
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
+
+    // Apply the chosen theme immediately so the UI reflects the change
+    applyTheme(settings.theme);
 
     // Update user context for chatbot
     const updatedUserData = { ...userData, settings };
@@ -449,19 +465,19 @@ function ProfileSettings({ settings, setSettings, userData }: any) {
                 label="Light"
                 icon={<Sun className="w-5 h-5" />}
                 selected={settings.theme === 'light'}
-                onClick={() => setSettings({...settings, theme: 'light'})}
+                onClick={() => { setSettings({...settings, theme: 'light'}); applyTheme('light'); }}
               />
               <ThemeOption
                 label="Dark"
                 icon={<Moon className="w-5 h-5" />}
                 selected={settings.theme === 'dark'}
-                onClick={() => setSettings({...settings, theme: 'dark'})}
+                onClick={() => { setSettings({...settings, theme: 'dark'}); applyTheme('dark'); }}
               />
               <ThemeOption
                 label="Auto"
                 icon={<Sparkles className="w-5 h-5" />}
                 selected={settings.theme === 'auto'}
-                onClick={() => setSettings({...settings, theme: 'auto'})}
+                onClick={() => { setSettings({...settings, theme: 'auto'}); applyTheme('auto'); }}
               />
             </div>
           </div>
