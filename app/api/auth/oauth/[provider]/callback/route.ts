@@ -8,7 +8,7 @@ import { createOAuthResultRecord } from '@/lib/oauth/resultStore';
 import type { OAuthProvider } from '@/lib/oauth/types';
 
 type RouteContext = {
-  params: Promise<{ provider: OAuthProvider }>;
+  params: Promise<{ provider: string }>;
 };
 
 function getBaseUrl(request: NextRequest) {
@@ -129,10 +129,10 @@ async function handleCallback(request: NextRequest, provider: OAuthProvider) {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   const { provider } = await context.params;
-  return handleCallback(request, provider);
+  return handleCallback(request, provider as OAuthProvider);
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const { provider } = await context.params;
-  return handleCallback(request, provider);
+  return handleCallback(request, provider as OAuthProvider);
 }
