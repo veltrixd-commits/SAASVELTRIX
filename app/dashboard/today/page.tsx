@@ -197,7 +197,7 @@ export default function TodayPage() {
       {/* Floating Add Priority Task Button */}
       <button
         onClick={() => setShowAddTaskModal(true)}
-        className="fixed bottom-24 right-6 z-50 w-16 h-16 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all flex items-center justify-center group"
+        className="fixed bottom-36 right-4 z-50 w-16 h-16 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all flex items-center justify-center group"
         title="Add Priority Task"
       >
         <Plus className="w-7 h-7" />
