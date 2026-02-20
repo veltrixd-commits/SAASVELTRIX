@@ -686,7 +686,7 @@ function StatCard({ label, value, icon, color }: any) {
   };
 
   return (
-    <div className={`${colors[color]} border-2 rounded-lg p-4`}>
+    <div className={`${colors[color as keyof typeof colors]} border-2 rounded-lg p-4`}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-2xl">{icon}</span>
       </div>

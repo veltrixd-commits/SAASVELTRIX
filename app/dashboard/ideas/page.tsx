@@ -110,7 +110,7 @@ export default function IdeasPage() {
         recognition.lang = 'en-US';
         recognition.onresult = (event: any) => {
           const transcriptText = Array.from(event.results)
-            .map(result => result[0]?.transcript || '')
+            .map((result: any) => result[0]?.transcript || '')
             .join(' ');
           setLiveTranscript(transcriptText.trim());
         };

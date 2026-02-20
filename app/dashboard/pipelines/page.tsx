@@ -62,7 +62,7 @@ export default function PipelinesPage() {
     { label: 'Avg. Deal Time', value: '18 days', icon: Clock, color: 'text-orange-500', glow: 'drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]' }
   ];
 
-  const currentStages = stages[selectedPipeline] || stages.sales;
+  const currentStages = stages[selectedPipeline as keyof typeof stages] || stages.sales;
 
   // Get unique sources and calculate stats
   const allDeals = currentStages.flatMap((stage: any) => stage.deals);
@@ -287,8 +287,8 @@ export default function PipelinesPage() {
                       <div className="text-center mb-2">
                         <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Conversion</div>
                         <div className={`text-lg font-bold ${
-                          rate >= 70 ? 'text-green-500' :
-                          rate >= 40 ? 'text-yellow-500' :
+                          (rate ?? 0) >= 70 ? 'text-green-500' :
+                          (rate ?? 0) >= 40 ? 'text-yellow-500' :
                           'text-red-500'
                         }`}>
                           {rate}%

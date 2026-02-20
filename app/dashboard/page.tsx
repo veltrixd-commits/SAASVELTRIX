@@ -127,7 +127,7 @@ export default function DashboardPage() {
 
     if (settingsStored) {
       try {
-        const parsed = JSON.parse(settingsStored);
+        const parsed = JSON.parse(settingsStored as string);
         setUserSettings(parsed);
       } catch (e) {
         console.error('Failed to parse settings');
@@ -136,7 +136,7 @@ export default function DashboardPage() {
 
     const deniedMessage = localStorage.getItem('accessDeniedMessage');
     if (deniedMessage) {
-      setAccessDeniedMessage(deniedMessage);
+      setAccessDeniedMessage(deniedMessage as string);
       localStorage.removeItem('accessDeniedMessage');
     }
   }, []);
@@ -1411,7 +1411,7 @@ function QuickActionCard({ icon, title, subtitle, onClick, color }: any) {
     <button
       type="button"
       onClick={onClick}
-      className={`glass-button rounded-2xl border-2 ${colorClasses[color]} p-4 transition-all duration-300 cursor-pointer hover:scale-110 w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 flex flex-col items-center text-center`}
+      className={`glass-button rounded-2xl border-2 ${colorClasses[color as keyof typeof colorClasses]} p-4 transition-all duration-300 cursor-pointer hover:scale-110 w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 flex flex-col items-center text-center`}
     >
       <div className="text-2xl sm:text-3xl mb-2 flex items-center justify-center text-gray-700 dark:text-gray-300">{icon}</div>
       <div className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{title}</div>
@@ -1532,7 +1532,7 @@ function PipelineStage({ name, count, color }: any) {
   };
 
   return (
-    <div className={`${colorClasses[color]} border-2 rounded-2xl glass-button p-4 text-center hover:scale-110 transition-all duration-300 cursor-pointer`}>
+    <div className={`${colorClasses[color as keyof typeof colorClasses]} border-2 rounded-2xl glass-button p-4 text-center hover:scale-110 transition-all duration-300 cursor-pointer`}>
       <div className="text-2xl sm:text-3xl font-bold mb-1">{count}</div>
       <div className="text-xs sm:text-sm font-medium">{name}</div>
     </div>

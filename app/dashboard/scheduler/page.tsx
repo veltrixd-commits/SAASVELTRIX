@@ -302,7 +302,7 @@ export default function SchedulerPage() {
                       <button
                         onClick={() => {
                           setMediaFile(null);
-                          setMediaPreview(null);
+                          setMediaPreview('');
                         }}
                         className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all"
                       >
@@ -373,7 +373,7 @@ export default function SchedulerPage() {
                       <button
                         onClick={() => {
                           setMediaFile(null);
-                          setMediaPreview(null);
+                          setMediaPreview('');
                         }}
                         className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
                       >

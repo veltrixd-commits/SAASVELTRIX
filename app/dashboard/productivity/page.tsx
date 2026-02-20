@@ -3308,7 +3308,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                           {task.stages.length > 0 && (
                             <span className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
                               <CheckSquare className="w-4 h-4" />
-                              {task.stages.filter(s => s.completed).length}/{task.stages.length} stages
+                              {task.stages.filter((s: any) => s.completed).length}/{task.stages.length} stages
                             </span>
                           )}
                           {task.assets.length > 0 && (
@@ -3354,7 +3354,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                               Task Stages
                             </h4>
                             <div className="space-y-2">
-                              {task.stages.map(stage => (
+                              {task.stages.map((stage: any) => (
                                 <div key={stage.id} className="bg-white dark:bg-gray-800 p-3 rounded-lg border-2 border-gray-200 dark:border-gray-700">
                                   <div className="flex items-start gap-3">
                                     <input
@@ -3427,7 +3427,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                               Task Assets
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              {task.assets.map(asset => {
+                              {task.assets.map((asset: any) => {
                                 const AssetIcon = asset.type === 'note' ? FileText :
                                                  asset.type === 'image' ? ImageIcon :
                                                  asset.type === 'video' ? Video :

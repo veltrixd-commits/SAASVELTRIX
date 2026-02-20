@@ -990,7 +990,7 @@ function StatCard({ label, value, color, active, onClick }: any) {
   return (
     <button
       onClick={onClick}
-      className={`${colors[color]} rounded-lg p-4 text-center transition-all cursor-pointer border-2 ${
+      className={`${colors[color as keyof typeof colors]} rounded-lg p-4 text-center transition-all cursor-pointer border-2 ${
         active ? 'border-gray-900 shadow-lg' : 'border-transparent'
       }`}
     >
@@ -1016,7 +1016,7 @@ function LeadCard({ lead, onEdit, onDelete, onRespond, onViewComments }: any) {
           <p className="text-sm text-gray-500">{lead.email}</p>
           <p className="text-sm text-gray-500">{lead.phone}</p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusColors[lead.status]}`}>
+        <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusColors[lead.status as keyof typeof statusColors]}`}>
           {lead.status}
         </span>
       </div>
@@ -1086,7 +1086,7 @@ function LeadRow({ lead, onEdit, onDelete, onRespond, onViewComments }: any) {
         <PlatformBadge platform={lead.source} size="xs" />
       </td>
       <td className="py-4 px-6">
-        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${statusColors[lead.status]}`}>
+        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${statusColors[lead.status as keyof typeof statusColors]}`}>
           {lead.status}
         </span>
       </td>

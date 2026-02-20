@@ -30,7 +30,7 @@ export default function BusinessDetailsPage() {
     }
 
     if (user?.businessName) {
-      setFormData(prev => ({ ...prev, businessName: user.businessName }));
+      setFormData(prev => ({ ...prev, businessName: user.businessName ?? '' }));
     }
   }, []);
 

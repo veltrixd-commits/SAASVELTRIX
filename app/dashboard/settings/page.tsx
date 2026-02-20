@@ -1825,7 +1825,7 @@ function UserModeOption({ mode, label, icon, description, selected, onClick }: a
   );
 }
 
-function PrivacyToggle({ label, description, checked, onChange, icon }: any) {
+function PrivacyToggle({ label, description, checked, onChange, icon }: { label: string; description: string; checked: boolean; onChange: (checked: boolean) => void; icon?: string }) {
   return (
     <label className="flex items-start gap-3 p-3 glass-card rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
       <input
@@ -1867,7 +1867,7 @@ function ThemeOption({ label, icon, selected, onClick }: any) {
   );
 }
 
-function NotificationToggle({ label, description, checked, onChange }: any) {
+function NotificationToggle({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <label className="flex items-start gap-3 p-3 glass-card rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
       <input

@@ -366,7 +366,7 @@ function normalizeSale(rawSale: any): CommerceSale {
     : [];
 
   const fallbackTotal = items.reduce(
-    (sum, item) => sum + Number(item.quantity || 0) * Number(item.sellingPrice ?? item.price ?? 0),
+    (sum: number, item: any) => sum + Number(item.quantity || 0) * Number(item.sellingPrice ?? item.price ?? 0),
     0
   );
 
