@@ -2,7 +2,7 @@
 // Smart lead qualification using GPT-4
 
 import OpenAI from 'openai'
-import { db } from '../db'
+import { getPrisma } from '../server/prisma'
 
 let openaiClient: OpenAI | null = null
 
@@ -28,8 +28,9 @@ interface ClassificationResult {
 }
 
 export async function classifyLead(leadId: string): Promise<ClassificationResult> {
+  const prisma = await getPrisma()
   // Get lead with conversation history
-  const lead = await db.lead.findUnique({
+  const lead = await prisma.lead.findUnique({
     where: { id: leadId },
     include: {
       conversations: {

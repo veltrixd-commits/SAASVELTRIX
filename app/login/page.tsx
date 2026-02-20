@@ -10,6 +10,7 @@ import { normalizePlan, setCurrentUser } from '@/lib/auth';
 
 const GOOGLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true';
 const APPLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_APPLE_OAUTH_ENABLED === 'true';
+const SOCIAL_LOGIN_ENABLED = GOOGLE_OAUTH_ENABLED || APPLE_OAUTH_ENABLED;
 const DEFAULT_PLAN_LABEL = 'Free Trial';
 
 type LoginApiUser = {
@@ -294,13 +295,14 @@ function LoginPageContent() {
           {/* Remember Me */}
           <div className="flex items-center gap-3">
             <input
+              id="rememberMe"
               type="checkbox"
               name="rememberMe"
               checked={formData.rememberMe}
               onChange={handleChange}
               className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <label className="text-sm text-gray-600 dark:text-gray-400">
+            <label htmlFor="rememberMe" className="text-sm text-gray-600 dark:text-gray-400">
               Remember me for 30 days
             </label>
           </div>
@@ -314,37 +316,44 @@ function LoginPageContent() {
             {isSubmitting ? 'Signing in...' : 'Log In'}
           </button>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-300 dark:border-gray-700"></span>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">or continue with</span>
-            </div>
-          </div>
+          {SOCIAL_LOGIN_ENABLED ? (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-300 dark:border-gray-700"></span>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">or continue with</span>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => handleSocialLogin('google')}
-              disabled={!GOOGLE_OAUTH_ENABLED || socialLoading !== null}
-              className="w-full py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
-            >
-              {socialLoading === 'google' ? 'Connecting...' : 'Continue with Google'}
-            </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {GOOGLE_OAUTH_ENABLED && (
+                  <button
+                    type="button"
+                    onClick={() => handleSocialLogin('google')}
+                    disabled={socialLoading !== null}
+                    className="w-full py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
+                  >
+                    {socialLoading === 'google' ? 'Connecting...' : 'Continue with Google'}
+                  </button>
+                )}
 
-            <button
-              type="button"
-              onClick={() => handleSocialLogin('apple')}
-              disabled={!APPLE_OAUTH_ENABLED || socialLoading !== null}
-              className="w-full py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
-            >
-              {socialLoading === 'apple' ? 'Connecting...' : 'Continue with Apple'}
-            </button>
-          </div>
-          {(!GOOGLE_OAUTH_ENABLED || !APPLE_OAUTH_ENABLED) && (
+                {APPLE_OAUTH_ENABLED && (
+                  <button
+                    type="button"
+                    onClick={() => handleSocialLogin('apple')}
+                    disabled={socialLoading !== null}
+                    className="w-full py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
+                  >
+                    {socialLoading === 'apple' ? 'Connecting...' : 'Continue with Apple'}
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
             <p className="text-center text-xs text-gray-500 dark:text-gray-400">
-              Admin note: enable each provider by adding credentials and setting NEXT_PUBLIC_[PROVIDER]_OAUTH_ENABLED=true.
+              Google/Apple sign-in is coming soon. Use email + password for now.
             </p>
           )}
 

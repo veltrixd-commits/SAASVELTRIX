@@ -1,4 +1,5 @@
-export const dynamic = "force-dynamic";
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { loginUser } from '@/lib/server-auth'
 

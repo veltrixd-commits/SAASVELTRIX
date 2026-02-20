@@ -2,7 +2,7 @@
 // Abstract interface for sending messages across all platforms
 
 import { LeadSource } from '@prisma/client'
-import prisma from '../db'
+import { getPrisma } from '../server/prisma'
 import { createTikTokClient } from './providers/tiktok'
 import { createWhatsAppClient } from './providers/whatsapp'
 
@@ -16,6 +16,7 @@ interface SendMessageParams {
 
 export async function sendUnifiedMessage(params: SendMessageParams) {
   const { leadId, platform, content, mediaUrl, automated = false } = params
+  const prisma = await getPrisma()
 
   // Get lead with platform account
   const lead = await prisma.lead.findUnique({

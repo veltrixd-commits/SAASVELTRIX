@@ -2,7 +2,7 @@
 // Event-based, time-based, and behavior-based automation execution
 
 import { AutomationTrigger, AutomationActionType, LeadSource } from '@prisma/client'
-import prisma from '../db'
+import { getPrisma } from '../server/prisma'
 import { sendUnifiedMessage } from '../messaging/unified-inbox'
 import { classifyLead } from '../ai/classifier'
 
@@ -17,6 +17,7 @@ export class AutomationEngine {
   // Execute automations for a given trigger
   async executeTrigger(context: AutomationContext) {
     const { leadId, tenantId, trigger, triggerData } = context
+    const prisma = await getPrisma()
 
     // Find applicable automations
     const automations = await prisma.automation.findMany({
@@ -59,6 +60,7 @@ export class AutomationEngine {
 
   // Execute a single automation
   async executeAutomation(automationId: string, lead: any, triggerData?: any) {
+    const prisma = await getPrisma()
     // Create automation run
     const run = await prisma.automationRun.create({
       data: {
@@ -210,6 +212,7 @@ export class AutomationEngine {
 
   // Action: Add tag
   private async actionAddTag(leadId: string, tag: string) {
+    const prisma = await getPrisma()
     const lead = await prisma.lead.findUnique({ where: { id: leadId } })
     if (!lead) return { success: false }
 
@@ -235,6 +238,7 @@ export class AutomationEngine {
 
   // Action: Remove tag
   private async actionRemoveTag(leadId: string, tag: string) {
+    const prisma = await getPrisma()
     const lead = await prisma.lead.findUnique({ where: { id: leadId } })
     if (!lead) return { success: false }
 
@@ -251,6 +255,7 @@ export class AutomationEngine {
 
   // Action: Change pipeline stage
   private async actionChangeStage(leadId: string, stageId: string) {
+    const prisma = await getPrisma()
     const stage = await prisma.pipelineStage.findUnique({ where: { id: stageId } })
     if (!stage) return { success: false, error: 'Stage not found' }
 
@@ -276,6 +281,7 @@ export class AutomationEngine {
 
   // Action: Assign user
   private async actionAssignUser(leadId: string, userId: string) {
+    const prisma = await getPrisma()
     await prisma.lead.update({
       where: { id: leadId },
       data: { assignedToId: userId },
@@ -296,6 +302,7 @@ export class AutomationEngine {
 
   // Action: Update field
   private async actionUpdateField(leadId: string, field: string, value: any) {
+    const prisma = await getPrisma()
     await prisma.lead.update({
       where: { id: leadId },
       data: { [field]: value },
@@ -307,6 +314,7 @@ export class AutomationEngine {
   // Action: AI Classify lead
   private async actionAIClassify(leadId: string, tenantId: string) {
     const result = await classifyLead(leadId)
+    const prisma = await getPrisma()
     
     await prisma.lead.update({
       where: { id: leadId },
@@ -324,6 +332,7 @@ export class AutomationEngine {
   // Action: Notify owner
   private async actionNotifyOwner(lead: any, tenantId: string, config: any) {
     // Find owner
+    const prisma = await getPrisma()
     const owner = await prisma.user.findFirst({
       where: {
         tenantId,

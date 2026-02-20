@@ -14,6 +14,7 @@ import {
 
 const GOOGLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true';
 const APPLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_APPLE_OAUTH_ENABLED === 'true';
+const SOCIAL_LOGIN_ENABLED = GOOGLE_OAUTH_ENABLED || APPLE_OAUTH_ENABLED;
 
 type UserType = 'business' | 'employee' | 'creator' | 'individual';
 
@@ -561,13 +562,14 @@ export default function SignUpPage() {
           {/* Terms and Conditions */}
           <div className="flex items-start gap-3">
             <input
+              id="agreeToTerms"
               type="checkbox"
               name="agreeToTerms"
               checked={formData.agreeToTerms}
               onChange={handleChange}
               className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <label className="text-sm text-gray-600 dark:text-gray-400">
+            <label htmlFor="agreeToTerms" className="text-sm text-gray-600 dark:text-gray-400">
               I agree to the{' '}
               <a href="/terms" className="text-blue-600 hover:underline">
                 Terms and Conditions
@@ -585,18 +587,19 @@ export default function SignUpPage() {
           {/* Remember Device */}
           <div className="flex items-start gap-3">
             <input
+              id="rememberDevice"
               type="checkbox"
               name="rememberDevice"
               checked={formData.rememberDevice}
               onChange={handleChange}
               className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <label htmlFor="rememberDevice" className="text-sm text-gray-600 dark:text-gray-400">
               <p className="font-medium text-gray-900 dark:text-white">Remember this device after verification</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 We'll trust this device for 30 days so you can jump straight to your dashboard on return visits.
               </p>
-            </div>
+            </label>
           </div>
 
           {/* General Error Display */}
@@ -633,61 +636,69 @@ export default function SignUpPage() {
             {isSubmitting ? 'Sending Verification...' : 'Create Account'}
           </button>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-300 dark:border-gray-700"></span>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">or continue with</span>
-            </div>
-          </div>
+          {SOCIAL_LOGIN_ENABLED ? (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-300 dark:border-gray-700"></span>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">or continue with</span>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => handleSocialSignup('google')}
-              disabled={!GOOGLE_OAUTH_ENABLED || Boolean(socialLoading) || isSubmitting}
-              className="w-full inline-flex items-center justify-center gap-2 py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
-            >
-              {socialLoading === 'google' ? (
-                <span>Connecting...</span>
-              ) : (
-                <span className="inline-flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4">
-                      <path d="M23.49 12.27c0-.82-.07-1.64-.21-2.44H12v4.63h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.54-5.17 3.54-8.82Z" fill="#4285F4" />
-                      <path d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3a7.08 7.08 0 0 1-10.54-3.72H1.49v3.12A12 12 0 0 0 12 24Z" fill="#34A853" />
-                      <path d="M5.53 14.37a7.22 7.22 0 0 1 0-4.72V6.53H1.49a12 12 0 0 0 0 10.94l4.04-3.1Z" fill="#FBBC05" />
-                      <path d="M12 4.75c1.76 0 3.36.61 4.62 1.8l3.45-3.45A12 12 0 0 0 1.49 6.53l4.04 3.12A7.08 7.08 0 0 1 12 4.75Z" fill="#EA4335" />
-                    </svg>
-                  </span>
-                  <span>Sign up with Gmail</span>
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSocialSignup('apple')}
-              disabled={!APPLE_OAUTH_ENABLED || Boolean(socialLoading) || isSubmitting}
-              className="w-full inline-flex items-center justify-center gap-2 py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
-            >
-              {socialLoading === 'apple' ? (
-                <span>Connecting...</span>
-              ) : (
-                <span className="inline-flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-6 h-6 text-gray-900 dark:text-white">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
-                      <path d="M16.44 1.99c0 1.14-.42 2.06-1.24 2.86-.92.9-1.99 1.43-3.18 1.34-.05-1.08.37-2.02 1.23-2.82.9-.86 1.99-1.36 3.19-1.38zM21 17.52c-.37.86-.8 1.66-1.3 2.41-.69 1.02-1.25 1.73-1.69 2.11-.7.65-1.45.99-2.27 1h-.02c-.57 0-1.26-.16-2.08-.49-.82-.33-1.58-.49-2.27-.49-.74 0-1.55.16-2.44.49-.89.33-1.6.5-2.12.52h-.19c-.77-.03-1.5-.35-2.2-.97-.47-.4-1.05-1.12-1.73-2.16-.74-1.11-1.35-2.4-1.82-3.86-.5-1.58-.75-3.1-.75-4.55 0-1.68.36-3.14 1.08-4.38a5.75 5.75 0 0 1 2.06-2.11A5.38 5.38 0 0 1 6.86 4c.66 0 1.52.19 2.56.55 1.03.36 1.7.55 2 .55.18 0 .83-.2 1.95-.59 1.04-.34 1.93-.49 2.68-.44 1.98.16 3.48.94 4.5 2.36a5 5 0 0 0-2.63 4.39c0 1.46.56 2.67 1.69 3.62-.1.29-.22.58-.34.88z" />
-                    </svg>
-                  </span>
-                  <span>Continue with Apple</span>
-                </span>
-              )}
-            </button>
-          </div>
-          {(!GOOGLE_OAUTH_ENABLED || !APPLE_OAUTH_ENABLED) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {GOOGLE_OAUTH_ENABLED && (
+                  <button
+                    type="button"
+                    onClick={() => handleSocialSignup('google')}
+                    disabled={Boolean(socialLoading) || isSubmitting}
+                    className="w-full inline-flex items-center justify-center gap-2 py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
+                  >
+                    {socialLoading === 'google' ? (
+                      <span>Connecting...</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white">
+                          <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4">
+                            <path d="M23.49 12.27c0-.82-.07-1.64-.21-2.44H12v4.63h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.54-5.17 3.54-8.82Z" fill="#4285F4" />
+                            <path d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3a7.08 7.08 0 0 1-10.54-3.72H1.49v3.12A12 12 0 0 0 12 24Z" fill="#34A853" />
+                            <path d="M5.53 14.37a7.22 7.22 0 0 1 0-4.72V6.53H1.49a12 12 0 0 0 0 10.94l4.04-3.1Z" fill="#FBBC05" />
+                            <path d="M12 4.75c1.76 0 3.36.61 4.62 1.8l3.45-3.45A12 12 0 0 0 1.49 6.53l4.04 3.12A7.08 7.08 0 0 1 12 4.75Z" fill="#EA4335" />
+                          </svg>
+                        </span>
+                        <span>Sign up with Gmail</span>
+                      </span>
+                    )}
+                  </button>
+                )}
+
+                {APPLE_OAUTH_ENABLED && (
+                  <button
+                    type="button"
+                    onClick={() => handleSocialSignup('apple')}
+                    disabled={Boolean(socialLoading) || isSubmitting}
+                    className="w-full inline-flex items-center justify-center gap-2 py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
+                  >
+                    {socialLoading === 'apple' ? (
+                      <span>Connecting...</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center w-6 h-6 text-gray-900 dark:text-white">
+                          <svg aria-hidden="true" viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                            <path d="M16.44 1.99c0 1.14-.42 2.06-1.24 2.86-.92.9-1.99 1.43-3.18 1.34-.05-1.08.37-2.02 1.23-2.82.9-.86 1.99-1.36 3.19-1.38zM21 17.52c-.37.86-.8 1.66-1.3 2.41-.69 1.02-1.25 1.73-1.69 2.11-.7.65-1.45.99-2.27 1h-.02c-.57 0-1.26-.16-2.08-.49-.82-.33-1.58-.49-2.27-.49-.74 0-1.55.16-2.44.49-.89.33-1.6.5-2.12.52h-.19c-.77-.03-1.5-.35-2.2-.97-.47-.4-1.05-1.12-1.73-2.16-.74-1.11-1.35-2.4-1.82-3.86-.5-1.58-.75-3.1-.75-4.55 0-1.68.36-3.14 1.08-4.38a5.75 5.75 0 0 1 2.06-2.11A5.38 5.38 0 0 1 6.86 4c.66 0 1.52.19 2.56.55 1.03.36 1.7.55 2 .55.18 0 .83-.2 1.95-.59 1.04-.34 1.93-.49 2.68-.44 1.98.16 3.48.94 4.5 2.36a5 5 0 0 0-2.63 4.39c0 1.46.56 2.67 1.69 3.62-.1.29-.22.58-.34.88z" />
+                          </svg>
+                        </span>
+                        <span>Continue with Apple</span>
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
             <p className="text-center text-xs text-gray-500 dark:text-gray-400">
-              Enable providers by adding credentials and setting NEXT_PUBLIC_[PROVIDER]_OAUTH_ENABLED=true.
+              Google/Apple sign-in is coming soon. Use email + password for now.
             </p>
           )}
 
