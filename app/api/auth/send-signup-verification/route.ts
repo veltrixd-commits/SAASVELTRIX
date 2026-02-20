@@ -1,11 +1,11 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-import { randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { SignupVerificationStatus } from '@prisma/client';
+import { Prisma, SignupVerificationStatus, TenantType, UserRole } from '@prisma/client';
 import { getPrisma } from '@/lib/server/prisma';
-import { hashPassword } from '@/lib/server-auth';
+import { generateToken, hashPassword } from '@/lib/server-auth';
 import { deliverEmail, getEmailTransportState } from '@/lib/emailTransport';
 
 type VerificationRequestPayload = {
@@ -45,6 +45,62 @@ function getAppOrigin(origin?: string): string {
   return 'http://localhost:3000';
 }
 
+// ── MVP instant-signup helpers ────────────────────────────────────────────────
+
+const PLAN_LIMITS: Record<string, { maxUsers: number; maxLeads: number; maxAutomations: number }> = {
+  free_trial:   { maxUsers: 5,   maxLeads: 1_000,   maxAutomations: 10 },
+  professional: { maxUsers: 25,  maxLeads: 10_000,  maxAutomations: 100 },
+  scale:        { maxUsers: 100, maxLeads: 100_000, maxAutomations: 500 },
+  enterprise:   { maxUsers: 250, maxLeads: 500_000, maxAutomations: 2000 },
+};
+
+const AUTH_COOKIE_NAME = 'veltrix_session';
+
+function slugify(value: string): string {
+  const slug = value.trim().toLowerCase().normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '').replace(/-{2,}/g, '-').slice(0, 48);
+  return slug || `workspace-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function splitName(fullName: string): { firstName: string; lastName: string } {
+  const parts = fullName.trim().split(/\s+/);
+  const firstName = parts.shift() || 'User';
+  const lastName = parts.length > 0 ? parts.join(' ') : 'Account';
+  return { firstName, lastName };
+}
+
+function resolveTenantType(userType: string): TenantType {
+  return userType === 'business' ? TenantType.BUSINESS : TenantType.AGENCY;
+}
+
+function resolveUserRole(userType: string): UserRole {
+  if (userType === 'business') return UserRole.BUSINESS_OWNER;
+  if (userType === 'employee') return UserRole.STAFF;
+  return UserRole.ADMIN;
+}
+
+function resolvePlanLimits(planType: string) {
+  return PLAN_LIMITS[planType] ?? PLAN_LIMITS.free_trial;
+}
+
+function resolveNextRoute(userType: string) {
+  return userType === 'employee' ? '/waiting-approval' : '/onboarding/business-details';
+}
+
+async function generateTenantSlug(tx: Prisma.TransactionClient, preferred: string) {
+  const base = slugify(preferred);
+  for (let i = 0; i < 25; i++) {
+    const candidate = i === 0 ? base : `${base}-${i}`;
+    const existing = await tx.tenant.findUnique({ where: { slug: candidate } });
+    if (!existing) return candidate;
+  }
+  return `${base}-${Date.now()}`;
+}
+
+function randomPassword() {
+  return randomBytes(16).toString('base64url');
+}
+
 export async function POST(request: NextRequest) {
   try {
     const payload = (await request.json()) as VerificationRequestPayload;
@@ -70,19 +126,104 @@ export async function POST(request: NextRequest) {
 
     const prisma = await getPrisma();
 
-    const emailState = getEmailTransportState();
-    if (!emailState.ready) {
-      return NextResponse.json(
-        { success: false, message: 'SMTP is not fully configured.', missingConfig: emailState.missing },
-        { status: 503 }
-      );
-    }
-
     const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       return NextResponse.json(
         { success: false, message: 'An account with this email already exists. Please sign in instead.' },
         { status: 409 }
+      );
+    }
+
+    // ── MVP bypass: create user immediately when verification is disabled or in console mode ──
+    const requireVerification = (process.env.AUTH_EMAIL_VERIFICATION_REQUIRED ?? 'true') === 'true';
+    const isConsole = (process.env.EMAIL_TRANSPORT_MODE ?? 'smtp') === 'console';
+
+    if (!requireVerification || isConsole) {
+      const passwordHash =
+        payload.provider === 'password' && payload.password
+          ? await hashPassword(payload.password)
+          : await hashPassword(randomPassword());
+
+      const planLimits = resolvePlanLimits(normalizedPlanType);
+
+      const result = await prisma.$transaction(async (tx) => {
+        const slug = await generateTenantSlug(tx, payload.businessName || payload.fullName);
+        const tenant = await tx.tenant.create({
+          data: {
+            name: payload.businessName || `${payload.fullName}'s Workspace`,
+            slug,
+            type: resolveTenantType(payload.userType),
+            plan: normalizedPlanType,
+            maxUsers: planLimits.maxUsers,
+            maxLeads: planLimits.maxLeads,
+            maxAutomations: planLimits.maxAutomations,
+          },
+        });
+        const { firstName, lastName } = splitName(payload.fullName.trim());
+        const user = await tx.user.create({
+          data: {
+            email: normalizedEmail,
+            password: passwordHash,
+            firstName,
+            lastName,
+            role: resolveUserRole(payload.userType),
+            tenantId: tenant.id,
+          },
+        });
+        return { tenant, user };
+      });
+
+      const jwt = generateToken({
+        userId: result.user.id,
+        email: result.user.email,
+        role: result.user.role,
+        tenantId: result.user.tenantId,
+      });
+
+      const nextRoute = resolveNextRoute(payload.userType);
+
+      const mvpResponse = NextResponse.json({
+        success: true,
+        message: 'Account created.',
+        token: jwt,
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          firstName: result.user.firstName,
+          lastName: result.user.lastName,
+          role: result.user.role,
+          userType: payload.userType,
+          plan: payload.plan,
+          planType: normalizedPlanType,
+        },
+        tenant: {
+          id: result.tenant.id,
+          name: result.tenant.name,
+          plan: result.tenant.plan,
+          maxUsers: result.tenant.maxUsers,
+          maxLeads: result.tenant.maxLeads,
+          maxAutomations: result.tenant.maxAutomations,
+        },
+        nextRoute,
+      });
+
+      mvpResponse.cookies.set(AUTH_COOKIE_NAME, jwt, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7,
+      });
+
+      return mvpResponse;
+    }
+
+    // ── Standard verification flow ────────────────────────────────────────────
+    const emailState = getEmailTransportState();
+    if (!emailState.ready) {
+      return NextResponse.json(
+        { success: false, message: 'SMTP is not fully configured.', missingConfig: emailState.missing },
+        { status: 503 }
       );
     }
 
@@ -92,10 +233,7 @@ export async function POST(request: NextRequest) {
       payload.provider === 'password' && payload.password ? await hashPassword(payload.password) : null;
 
     await prisma.signupVerification.deleteMany({
-      where: {
-        email: normalizedEmail,
-        status: SignupVerificationStatus.PENDING,
-      },
+      where: { email: normalizedEmail, status: SignupVerificationStatus.PENDING },
     });
 
     await prisma.signupVerification.create({
@@ -124,9 +262,7 @@ export async function POST(request: NextRequest) {
     const baseUrl = getAppOrigin(payload.origin);
     const verificationUrl = `${baseUrl}/verify-signup?token=${encodeURIComponent(token)}`;
 
-    if ((process.env.EMAIL_TRANSPORT_MODE || 'smtp') === 'console') {
-      console.log('[email-console] verificationUrl:', verificationUrl);
-    }
+    console.log('[email-console] verificationUrl:', verificationUrl);
 
     await deliverEmail({
       from: process.env.SMTP_FROM || 'UniLife <noreply@unilife.local>',

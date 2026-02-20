@@ -138,6 +138,7 @@ export default function SignUpPage() {
     if (!response.ok || !data?.success) {
       throw new Error(data?.message || 'Failed to send verification email.');
     }
+    return data as { nextRoute?: string; message?: string };
   };
 
   const handleResendVerification = async () => {
@@ -205,7 +206,15 @@ export default function SignUpPage() {
         rememberDevice: formData.rememberDevice,
       };
 
-      await sendSignupVerificationEmail(verificationPayload as unknown as Record<string, unknown>);
+      const result = await sendSignupVerificationEmail(verificationPayload as unknown as Record<string, unknown>);
+
+      // MVP mode: API created the user immediately and returned nextRoute
+      if (result?.nextRoute) {
+        router.push(result.nextRoute);
+        return;
+      }
+
+      // Standard verification flow: show "check your email" screen
       savePendingSignupVerification(verificationPayload);
       setPendingVerificationPayload(verificationPayload);
 
