@@ -1,8 +1,5 @@
 node_modules
 .next
-.env
-.env.local
-.env.production
 dist
 build
 *.log
@@ -13,5 +10,6 @@ coverage
 *.tsbuildinfo
 .vercel
 
-.env.development.local
-.env.development
+# All .env files — never commit secrets
+.env
+.env.*
