@@ -12,3 +12,6 @@ build
 coverage
 *.tsbuildinfo
 .vercel
+
+.env.development.local
+.env.development
