@@ -2,6 +2,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { loginUser } from '@/lib/server-auth'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
 const AUTH_COOKIE_NAME = 'veltrix_session'
 const FALLBACK_ROUTE = '/dashboard'
@@ -30,6 +31,16 @@ function sanitizeRedirect(target?: string | null) {
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Rate limiting: 10 login attempts per IP per minute ───────────────────
+    const ip = getClientIp(request);
+    const limit = rateLimit({ key: `login:${ip}`, maxRequests: 10, windowMs: 60_000 });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, message: 'Too many login attempts. Please wait a minute and try again.' },
+        { status: 429 }
+      );
+    }
+
     const body = (await request.json()) as LoginPayload
     const email = body.email?.trim().toLowerCase()
     const password = body.password?.trim()

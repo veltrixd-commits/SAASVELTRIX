@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { initializeDemoData } from '@/lib/demoData';
 import { useSubscription } from '@/lib/subscription-context';
+import DemoWalkthroughModal from '@/components/DemoWalkthroughModal';
 
 const POS_STOREFRONT_STORAGE_KEY = 'posStorefrontMode';
 const POS_STOREFRONT_EVENT = 'pos-storefront-mode-change';
@@ -340,6 +341,9 @@ export default function DashboardLayout({
 
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 ${kioskActive ? 'overflow-hidden' : ''}`}>
+      {/* Demo onboarding walkthrough — shows once on first login */}
+      {!kioskActive && <DemoWalkthroughModal />}
+
       {/* Mobile Overlay */}
       {!kioskActive && sidebarOpen && (
         <div

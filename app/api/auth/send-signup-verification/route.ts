@@ -103,6 +103,25 @@ function randomPassword() {
 
 export async function POST(request: NextRequest) {
   try {
+    // ── Public signup guard ───────────────────────────────────────────────────
+    const allowPublicSignup = process.env.ALLOW_PUBLIC_SIGNUP === 'true';
+    if (!allowPublicSignup) {
+      return NextResponse.json(
+        { success: false, message: 'Signups are currently closed. Check back soon or contact us.' },
+        { status: 403 }
+      );
+    }
+
+    // ── Rate limiting: 5 signup attempts per IP per minute ───────────────────
+    const ip = getClientIp(request);
+    const limit = rateLimit({ key: `signup:${ip}`, maxRequests: 5, windowMs: 60_000 });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, message: 'Too many signup attempts. Please wait a minute and try again.' },
+        { status: 429 }
+      );
+    }
+
     const payload = (await request.json()) as VerificationRequestPayload;
 
     if (!payload?.email || !payload?.fullName || !payload?.userType || !payload?.provider || !payload?.plan) {
@@ -172,6 +191,19 @@ export async function POST(request: NextRequest) {
         });
         return { tenant, user };
       });
+
+      // ── Seed demo data for new tenant (non-blocking) ────────────────────────
+      const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+      if (isDemoMode) {
+        try {
+          const prismaForSeed = await getPrisma();
+          await prismaForSeed.$transaction((tx) =>
+            seedDemoData(tx, result.tenant.id, result.user.id)
+          );
+        } catch (seedErr) {
+          console.warn('[demo-seed] Seed failed (non-fatal):', seedErr);
+        }
+      }
 
       const jwt = generateToken({
         userId: result.user.id,
