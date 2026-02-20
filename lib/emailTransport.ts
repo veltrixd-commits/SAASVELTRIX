@@ -99,6 +99,12 @@ export async function deliverEmail(options: SendMailOptions) {
       fallback: state.fallback,
       reason: state.fallbackReason,
     });
+    if (options.text) {
+      console.info('[email-console] Email body (text):', String(options.text).slice(0, 1000));
+    }
+    if (options.html) {
+      console.info('[email-console] Email body (html):', String(options.html).slice(0, 1000));
+    }
     return { mocked: true };
   }
 
