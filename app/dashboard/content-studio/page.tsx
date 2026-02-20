@@ -306,98 +306,123 @@ function TabButton({ active, onClick, icon: Icon, label }: any) {
 function CameraCapture() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const facingModeRef = useRef<'user' | 'environment'>('user');
+
   const [isStreaming, setIsStreaming] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [recordedVideo, setRecordedVideo] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [recordSecs, setRecordSecs] = useState(0);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [camError, setCamError] = useState<string | null>(null);
 
-  const startCamera = async () => {
+  // Keep ref in sync so startCamera closure always reads latest value
+  useEffect(() => { facingModeRef.current = facingMode; }, [facingMode]);
+
+  // Cleanup all tracks on unmount
+  useEffect(() => {
+    return () => {
+      stopAllTracks();
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const stopAllTracks = () => {
+    if (videoRef.current?.srcObject) {
+      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const startCamera = async (mode?: 'user' | 'environment') => {
+    setCamError(null);
+    stopAllTracks();
+    const facing = mode ?? facingModeRef.current;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode }, 
-        audio: true 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true,
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => {});
         setIsStreaming(true);
       }
-    } catch (err) {
-      console.error('Error accessing camera:', err);
-      alert('Unable to access camera. Please check permissions.');
+    } catch (err: any) {
+      const msg =
+        err?.name === 'NotAllowedError'
+          ? 'Camera permission denied. Allow camera access in your browser settings.'
+          : err?.name === 'NotFoundError'
+          ? 'No camera found on this device.'
+          : 'Could not start camera. Check permissions or try a different browser.';
+      setCamError(msg);
+      console.error('Camera error:', err);
     }
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-      tracks.forEach(track => track.stop());
-      setIsStreaming(false);
-    }
+    if (isRecording) stopRecording();
+    stopAllTracks();
+    setIsStreaming(false);
   };
 
   const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const context = canvasRef.current.getContext('2d');
-      if (context) {
-        canvasRef.current.width = videoRef.current.videoWidth;
-        canvasRef.current.height = videoRef.current.videoHeight;
-        context.drawImage(videoRef.current, 0, 0);
-        const imageData = canvasRef.current.toDataURL('image/png');
-        setCapturedImage(imageData);
-      }
-    }
+    if (!videoRef.current || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+    canvasRef.current.width = videoRef.current.videoWidth;
+    canvasRef.current.height = videoRef.current.videoHeight;
+    ctx.drawImage(videoRef.current, 0, 0);
+    setCapturedImage(canvasRef.current.toDataURL('image/png'));
   };
 
   const startRecording = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      const recorder = new MediaRecorder(stream);
-      const chunks: BlobPart[] = [];
+    if (!videoRef.current?.srcObject) return;
+    chunksRef.current = [];
+    const stream = videoRef.current.srcObject as MediaStream;
 
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        setRecordedVideo(url);
-      };
+    // Pick best supported MIME
+    const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4']
+      .find(m => MediaRecorder.isTypeSupported(m)) || '';
 
-      recorder.start();
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-    }
+    const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    recorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: mime || 'video/webm' });
+      setRecordedVideo(URL.createObjectURL(blob));
+    };
+
+    recorder.start(250); // emit every 250 ms to avoid data loss
+    setIsRecording(true);
+    setRecordSecs(0);
+    timerRef.current = setInterval(() => setRecordSecs(s => s + 1), 1000);
   };
 
   const stopRecording = () => {
-    if (mediaRecorder) {
-      mediaRecorder.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const downloadImage = () => {
-    if (capturedImage) {
-      const link = document.createElement('a');
-      link.href = capturedImage;
-      link.download = `capture-${Date.now()}.png`;
-      link.click();
-    }
-  };
-
-  const downloadVideo = () => {
-    if (recordedVideo) {
-      const link = document.createElement('a');
-      link.href = recordedVideo;
-      link.download = `video-${Date.now()}.webm`;
-      link.click();
-    }
+    if (mediaRecorderRef.current?.state !== 'inactive') mediaRecorderRef.current?.stop();
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setIsRecording(false);
   };
 
   const switchCamera = () => {
-    stopCamera();
-    setFacingMode(facingMode === 'user' ? 'environment' : 'user');
-    setTimeout(startCamera, 100);
+    const next = facingModeRef.current === 'user' ? 'environment' : 'user';
+    setFacingMode(next);
+    startCamera(next);
+  };
+
+  const formatTime = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  const downloadBlob = (url: string, name: string) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
   };
 
   return (
@@ -410,80 +435,80 @@ function CameraCapture() {
         Spin up the feed, grab the asset, and push it downline immediately.
       </p>
 
+      {camError && (
+        <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
+          <span>⚠️</span> {camError}
+        </div>
+      )}
+
       <div className="grid md:grid-cols-2 gap-6">
         {/* Camera Preview */}
         <div className="space-y-3">
           <div className="relative bg-black rounded-xl overflow-hidden aspect-video">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
             <canvas ref={canvasRef} className="hidden" />
-            
+
             {!isStreaming && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80">
                 <div className="text-center">
                   <Camera className="w-16 h-16 text-gray-400 mx-auto mb-3" />
-                  <p className="text-white">Camera not started</p>
+                  <p className="text-white font-medium">Camera not started</p>
                 </div>
+              </div>
+            )}
+
+            {/* Recording indicator */}
+            {isRecording && (
+              <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/60 rounded-full px-3 py-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-white text-xs font-mono font-bold">{formatTime(recordSecs)}</span>
               </div>
             )}
           </div>
 
+          {/* Start / Stop / Switch */}
           <div className="flex flex-wrap gap-2">
             {!isStreaming ? (
               <button
-                onClick={startCamera}
+                onClick={() => startCamera()}
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium flex items-center justify-center gap-2"
               >
-                <Camera className="w-5 h-5" />
-                Start Camera
+                <Camera className="w-5 h-5" /> Start Camera
               </button>
             ) : (
               <>
-                <button
-                  onClick={stopCamera}
-                  className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-medium"
-                >
+                <button onClick={stopCamera} className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-medium">
                   Stop Camera
                 </button>
-                <button
-                  onClick={switchCamera}
-                  className="px-4 py-3 bg-gray-600 text-white rounded-lg font-medium"
-                >
+                <button onClick={switchCamera} title="Flip camera" className="px-4 py-3 bg-gray-600 text-white rounded-lg font-medium">
                   <RotateCw className="w-5 h-5" />
                 </button>
               </>
             )}
           </div>
 
+          {/* Capture / Record controls */}
           {isStreaming && (
             <div className="flex gap-2">
               <button
                 onClick={capturePhoto}
                 className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-medium flex items-center justify-center gap-2"
               >
-                <Camera className="w-5 h-5" />
-                Capture Photo
+                <Camera className="w-5 h-5" /> Capture Photo
               </button>
               {!isRecording ? (
                 <button
                   onClick={startRecording}
                   className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-medium flex items-center justify-center gap-2"
                 >
-                  <Video className="w-5 h-5" />
-                  Record Video
+                  <Video className="w-5 h-5" /> Record Video
                 </button>
               ) : (
                 <button
                   onClick={stopRecording}
                   className="flex-1 px-4 py-3 bg-yellow-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 animate-pulse"
                 >
-                  <Pause className="w-5 h-5" />
-                  Stop Recording
+                  <Pause className="w-5 h-5" /> Stop · {formatTime(recordSecs)}
                 </button>
               )}
             </div>
@@ -493,40 +518,50 @@ function CameraCapture() {
         {/* Captured Media */}
         <div className="space-y-3">
           <h4 className="font-semibold text-gray-900 dark:text-white">Captured Media</h4>
-          
+
           {capturedImage && (
             <div className="space-y-2">
               <div className="relative bg-black rounded-xl overflow-hidden">
                 <img src={capturedImage} alt="Captured" className="w-full" />
               </div>
-              <button
-                onClick={downloadImage}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2"
-              >
-                <Download className="w-5 h-5" />
-                Download Photo
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => downloadBlob(capturedImage, `capture-${Date.now()}.png`)}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2"
+                >
+                  <Download className="w-5 h-5" /> Download Photo
+                </button>
+                <button onClick={() => setCapturedImage(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium">
+                  Clear
+                </button>
+              </div>
             </div>
           )}
 
           {recordedVideo && (
             <div className="space-y-2">
               <div className="relative bg-black rounded-xl overflow-hidden">
-                <video src={recordedVideo} controls className="w-full" />
+                <video src={recordedVideo} controls className="w-full rounded-xl" />
               </div>
-              <button
-                onClick={downloadVideo}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2"
-              >
-                <Download className="w-5 h-5" />
-                Download Video
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => downloadBlob(recordedVideo, `recording-${Date.now()}.webm`)}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2"
+                >
+                  <Download className="w-5 h-5" /> Download Video
+                </button>
+                <button onClick={() => setRecordedVideo(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium">
+                  Clear
+                </button>
+              </div>
             </div>
           )}
 
           {!capturedImage && !recordedVideo && (
             <div className="h-64 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl flex items-center justify-center">
-              <p className="text-gray-400">No footage yet. Hit record.</p>
+              <p className="text-gray-400 text-sm text-center px-4">
+                No footage yet. Start the camera, then capture a photo or record a video.
+              </p>
             </div>
           )}
         </div>
@@ -536,25 +571,104 @@ function CameraCapture() {
 }
 
 function VideoEditor() {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [speed, setSpeed] = useState(1);
+  const [volume, setVolume] = useState(1);
+  const [textOverlay, setTextOverlay] = useState('');
+  const [exportMsg, setExportMsg] = useState('');
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setVideoFile(file);
-      setVideoUrl(URL.createObjectURL(file));
+    if (!file) return;
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    const url = URL.createObjectURL(file);
+    setVideoFile(file);
+    setVideoUrl(url);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setTrimStart(0);
+    setExportMsg('');
+  };
+
+  const onLoaded = () => {
+    if (!videoRef.current) return;
+    const d = videoRef.current.duration || 0;
+    setDuration(d);
+    setTrimEnd(d);
+    videoRef.current.playbackRate = speed;
+    videoRef.current.volume = volume;
+  };
+
+  const onTimeUpdate = () => {
+    if (!videoRef.current) return;
+    const t = videoRef.current.currentTime;
+    setCurrentTime(t);
+    // Loop within trim region
+    if (t >= trimEnd) {
+      videoRef.current.currentTime = trimStart;
     }
   };
 
-  const applyEffect = (effect: string) => {
-    setIsProcessing(true);
-    // Simulate processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      alert(`${effect} effect applied! (In production, this would process the video)`);
-    }, 2000);
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      if (videoRef.current.currentTime < trimStart || videoRef.current.currentTime >= trimEnd) {
+        videoRef.current.currentTime = trimStart;
+      }
+      videoRef.current.play();
+      setIsPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  const applySpeed = (s: number) => {
+    setSpeed(s);
+    if (videoRef.current) videoRef.current.playbackRate = s;
+  };
+
+  const applyVolume = (v: number) => {
+    setVolume(v);
+    if (videoRef.current) videoRef.current.volume = v;
+  };
+
+  const seekTo = (t: number) => {
+    if (videoRef.current) videoRef.current.currentTime = t;
+    setCurrentTime(t);
+  };
+
+  const handleExport = () => {
+    if (!videoFile) return;
+    // Download the original file (trim/speed in a real app would use FFmpeg.wasm)
+    const a = document.createElement('a');
+    a.href = videoUrl!;
+    a.download = `edited-${Date.now()}.${videoFile.name.split('.').pop() || 'webm'}`;
+    a.click();
+    setExportMsg('Your file is downloading. Full in-browser trim/speed export coming in the next release.');
+  };
+
+  const fmt = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+  const clearVideo = () => {
+    if (videoRef.current) { videoRef.current.pause(); videoRef.current.src = ''; }
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    setVideoFile(null);
+    setVideoUrl(null);
+    setIsPlaying(false);
+    setDuration(0);
+    setCurrentTime(0);
+    setTrimStart(0);
+    setTrimEnd(0);
+    setExportMsg('');
   };
 
   return (
@@ -564,150 +678,175 @@ function VideoEditor() {
         Video Edit Suite
       </h3>
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        Load footage, make the cuts, export the asset—no wandering between tools.
+        Load footage, make the cuts, control speed — export direct from the browser.
       </p>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Video Upload & Preview */}
+        {/* Player */}
         <div className="space-y-3">
-          <div className="relative bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-6 border-2 border-dashed border-purple-300 dark:border-purple-700">
-            {!videoUrl ? (
-              <label className="cursor-pointer block text-center">
-                <Upload className="w-16 h-16 text-purple-600 mx-auto mb-3" />
-                <p className="text-gray-700 dark:text-gray-300 font-medium mb-2">
-                  Upload Video
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Supports MP4, MOV, WEBM
-                </p>
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
+          {!videoUrl ? (
+            <label className="cursor-pointer block relative bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-8 border-2 border-dashed border-purple-300 dark:border-purple-700 text-center hover:border-purple-500 transition-colors">
+              <Upload className="w-16 h-16 text-purple-600 mx-auto mb-3" />
+              <p className="text-gray-700 dark:text-gray-300 font-medium mb-1">Upload Video</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">MP4 · MOV · WEBM · AVI</p>
+              <input type="file" accept="video/*" onChange={handleFileUpload} className="hidden" />
+            </label>
+          ) : (
+            <div className="space-y-2">
+              <div className="relative bg-black rounded-xl overflow-hidden aspect-video">
+                <video
+                  ref={videoRef}
+                  src={videoUrl}
+                  className="w-full h-full object-contain"
+                  onLoadedMetadata={onLoaded}
+                  onTimeUpdate={onTimeUpdate}
+                  onEnded={() => setIsPlaying(false)}
                 />
-              </label>
-            ) : (
-              <div>
-                <video src={videoUrl} controls className="w-full rounded-lg mb-3" />
+                {textOverlay && (
+                  <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none">
+                    <span className="bg-black/60 text-white text-sm font-bold px-3 py-1 rounded">
+                      {textOverlay}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Seek bar */}
+              <input
+                type="range"
+                min={0}
+                max={duration || 1}
+                step={0.05}
+                value={currentTime}
+                onChange={(e) => seekTo(Number(e.target.value))}
+                className="w-full accent-purple-600"
+                aria-label="Seek position"
+              />
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>{fmt(currentTime)}</span>
+                <span>{fmt(duration)}</span>
+              </div>
+
+              {/* Play + controls */}
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
-                    setVideoFile(null);
-                    setVideoUrl(null);
-                  }}
-                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium"
+                  onClick={togglePlay}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
                 >
-                  Remove Video
+                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  {isPlaying ? 'Pause' : 'Play'}
+                </button>
+                <button onClick={clearVideo} className="px-3 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700">
+                  Remove
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Editing Tools */}
-        <div className="space-y-3">
-          <h4 className="font-semibold text-gray-900 dark:text-white">Quick Effects</h4>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => applyEffect('Trim')}
-              disabled={!videoFile || isProcessing}
-              className="px-4 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg font-medium disabled:opacity-50 hover:shadow-lg transition-all"
-            >
-              ✂️ Trim
-            </button>
-            <button
-              onClick={() => applyEffect('Speed')}
-              disabled={!videoFile || isProcessing}
-              className="px-4 py-3 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg font-medium disabled:opacity-50 hover:shadow-lg transition-all"
-            >
-              ⚡ Speed
-            </button>
-            <button
-              onClick={() => applyEffect('Filter')}
-              disabled={!videoFile || isProcessing}
-              className="px-4 py-3 bg-gradient-to-br from-pink-500 to-pink-600 text-white rounded-lg font-medium disabled:opacity-50 hover:shadow-lg transition-all"
-            >
-              🎨 Filters
-            </button>
-            <button
-              onClick={() => applyEffect('Text')}
-              disabled={!videoFile || isProcessing}
-              className="px-4 py-3 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg font-medium disabled:opacity-50 hover:shadow-lg transition-all"
-            >
-              📝 Add Text
-            </button>
-            <button
-              onClick={() => applyEffect('Music')}
-              disabled={!videoFile || isProcessing}
-              className="px-4 py-3 bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-lg font-medium disabled:opacity-50 hover:shadow-lg transition-all"
-            >
-              🎵 Music
-            </button>
-            <button
-              onClick={() => applyEffect('Transition')}
-              disabled={!videoFile || isProcessing}
-              className="px-4 py-3 bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg font-medium disabled:opacity-50 hover:shadow-lg transition-all"
-            >
-              ✨ Transitions
-            </button>
-            <button
-              onClick={() => applyEffect('Sticker')}
-              disabled={!videoFile || isProcessing}
-              className="px-4 py-3 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-lg font-medium disabled:opacity-50 hover:shadow-lg transition-all"
-            >
-              😀 Stickers
-            </button>
-            <button
-              onClick={() => applyEffect('Crop')}
-              disabled={!videoFile || isProcessing}
-              className="px-4 py-3 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg font-medium disabled:opacity-50 hover:shadow-lg transition-all"
-            >
-              🔲 Crop
-            </button>
-          </div>
-
-          {isProcessing && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
-              <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
-              <p className="text-sm text-blue-600 font-medium">Processing video...</p>
+        {/* Controls */}
+        <div className="space-y-4">
+          {/* Trim */}
+          {videoUrl && duration > 0 && (
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-3">
+              <h5 className="font-semibold text-gray-900 dark:text-white text-sm">✂️ Trim Region</h5>
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <label className="text-xs text-gray-600 dark:text-gray-400 w-14 shrink-0">Start {fmt(trimStart)}</label>
+                  <input
+                    type="range" min={0} max={trimEnd - 0.1} step={0.1} value={trimStart}
+                    onChange={(e) => { const v = Number(e.target.value); setTrimStart(v); seekTo(v); }}
+                    className="flex-1 accent-green-600"
+                    aria-label="Trim start"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-xs text-gray-600 dark:text-gray-400 w-14 shrink-0">End {fmt(trimEnd)}</label>
+                  <input
+                    type="range" min={trimStart + 0.1} max={duration} step={0.1} value={trimEnd}
+                    onChange={(e) => setTrimEnd(Number(e.target.value))}
+                    className="flex-1 accent-red-500"
+                    aria-label="Trim end"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Clip length: {fmt(trimEnd - trimStart)} · Playback loops between trim points.
+                </p>
+              </div>
             </div>
           )}
 
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-4">
-            <h5 className="font-semibold text-gray-900 dark:text-white mb-2">Pro Features</h5>
-            <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                Multi-layer editing
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                Keyframe animations
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                Green screen removal
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                Auto-captions
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                Export in 4K
-              </li>
-            </ul>
+          {/* Speed */}
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+            <h5 className="font-semibold text-gray-900 dark:text-white text-sm mb-3">⚡ Playback Speed</h5>
+            <div className="flex flex-wrap gap-2">
+              {[0.25, 0.5, 1, 1.5, 2, 3].map(s => (
+                <button
+                  key={s}
+                  onClick={() => applySpeed(s)}
+                  className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${speed === s ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
+                >
+                  {s}×
+                </button>
+              ))}
+            </div>
           </div>
 
-          {videoFile && !isProcessing && (
+          {/* Volume */}
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+            <h5 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">🔊 Volume</h5>
+            <input
+              type="range" min={0} max={1} step={0.05} value={volume}
+              onChange={(e) => applyVolume(Number(e.target.value))}
+              className="w-full accent-blue-600"
+              aria-label="Volume"
+            />
+            <p className="text-xs text-gray-500 mt-1">{Math.round(volume * 100)}%</p>
+          </div>
+
+          {/* Text overlay */}
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+            <h5 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">📝 Text Overlay</h5>
+            <input
+              type="text"
+              value={textOverlay}
+              onChange={(e) => setTextOverlay(e.target.value)}
+              placeholder="Caption shown on video…"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+            />
+          </div>
+
+          {/* Export */}
+          {videoFile && (
             <button
-              onClick={() => alert('Exporting video... (In production, this would export the edited video)')}
-              className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+              onClick={handleExport}
+              className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg font-bold flex items-center justify-center gap-2 hover:scale-105 transition-all"
             >
-              <Download className="w-5 h-5" />
-              Export Video
+              <Download className="w-5 h-5" /> Export Video
             </button>
+          )}
+          {exportMsg && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">{exportMsg}</p>
+          )}
+
+          {!videoFile && (
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-4">
+              <h5 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">Included in Edit Suite</h5>
+              <ul className="space-y-1.5 text-sm text-gray-600 dark:text-gray-400">
+                {['Trim start / end', 'Loop trim preview', 'Speed: 0.25× – 3×', 'Volume control', 'Text overlay caption', 'Download original'].map(f => (
+                  <li key={f} className="flex items-center gap-2"><span className="text-green-600">✓</span>{f}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Placeholder for file-not-loaded state */}
+          {!videoFile && (
+            <label className="cursor-pointer block w-full px-4 py-3 border-2 border-dashed border-purple-300 dark:border-purple-700 text-center rounded-lg text-purple-600 font-medium hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
+              <Upload className="w-5 h-5 inline mr-2" />
+              Upload a video to start editing
+              <input type="file" accept="video/*" onChange={handleFileUpload} className="hidden" />
+            </label>
           )}
         </div>
       </div>
