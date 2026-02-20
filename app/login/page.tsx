@@ -22,6 +22,8 @@ type LoginApiUser = {
   tenantId: string;
   avatar?: string | null;
   userType?: string;
+  onboardingComplete?: boolean;
+  onboardingStep?: string;
 };
 
 type LoginApiTenant = {
@@ -74,7 +76,8 @@ function mapLoginResponseToAccountUser(
     plan: formatPlanLabel(safePlan),
     planType: normalizePlan(safePlan),
     rememberMe,
-    onboardingComplete: true,
+    onboardingComplete: payload.user.onboardingComplete ?? true,
+    onboardingStep: payload.user.onboardingStep || 'business-details',
     createdAt: new Date().toISOString(),
     businessName: tenant?.name,
     companyName: tenant?.name,

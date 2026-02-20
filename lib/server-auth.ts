@@ -123,6 +123,9 @@ export async function loginUser(email: string, password: string) {
     },
   })
 
+  // Note: prisma.user.findUnique includes all model fields; onboardingComplete and
+  // onboardingStep are available via `user.onboardingComplete` and `user.onboardingStep`
+
   if (!user) {
     throw new Error('Invalid credentials')
   }
@@ -164,6 +167,8 @@ export async function loginUser(email: string, password: string) {
       role: user.role,
       tenantId: user.tenantId,
       avatar: user.avatar,
+      onboardingComplete: user.onboardingComplete,
+      onboardingStep: user.onboardingStep,
     },
     tenant: user.tenant,
     token,

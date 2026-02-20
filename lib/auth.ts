@@ -168,7 +168,8 @@ export function authenticate(email: string, password: string): { ok: boolean; er
     return { ok: false, error: 'Invalid email or password.' };
   }
 
-  if (user.emailVerified === false) {
+  // Only block when explicitly false — undefined means server-side MVP signup (no email step)
+  if (user.emailVerified === false && process.env.NEXT_PUBLIC_REQUIRE_EMAIL_VERIFICATION === 'true') {
     return { ok: false, error: 'Please verify your email first before logging in.' };
   }
 

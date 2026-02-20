@@ -43,7 +43,12 @@ export async function POST(request: NextRequest) {
 
     const { user, tenant, token } = await loginUser(email, password)
     const rememberMe = Boolean(body.rememberMe)
-    const nextRoute = sanitizeRedirect(body.redirectTo) || FALLBACK_ROUTE
+
+    // Route to onboarding if not yet completed, otherwise honour redirectTo or dashboard
+    const onboardingNextRoute = user.onboardingComplete
+      ? (sanitizeRedirect(body.redirectTo) || FALLBACK_ROUTE)
+      : `/onboarding/${user.onboardingStep || 'business-details'}`
+    const nextRoute = onboardingNextRoute
 
     const response = NextResponse.json({
       success: true,
@@ -57,6 +62,8 @@ export async function POST(request: NextRequest) {
         tenantId: user.tenantId,
         avatar: user.avatar,
         userType: tenant?.type === 'BUSINESS' ? 'business' : 'agency',
+        onboardingComplete: user.onboardingComplete,
+        onboardingStep: user.onboardingStep,
       },
       tenant: tenant
         ? {
