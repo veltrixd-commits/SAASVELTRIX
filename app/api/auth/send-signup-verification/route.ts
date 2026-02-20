@@ -199,6 +199,8 @@ export async function POST(request: NextRequest) {
         tenant: {
           id: result.tenant.id,
           name: result.tenant.name,
+          slug: result.tenant.slug,
+          type: result.tenant.type,
           plan: result.tenant.plan,
           maxUsers: result.tenant.maxUsers,
           maxLeads: result.tenant.maxLeads,

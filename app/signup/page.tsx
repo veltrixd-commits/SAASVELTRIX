@@ -6,11 +6,60 @@ import { useRouter } from 'next/navigation';
 import { Mail, Lock, User, Building2, Eye, EyeOff, Briefcase, Users, Video, Heart } from 'lucide-react';
 import { generateDeviceFingerprint, checkDeviceRegistered, checkEmailRegistered } from '@/lib/deviceFingerprint';
 import { validateEmployerCode } from '@/lib/companyRegistry';
-import { getSelectedPlan, normalizePlan, migrateLegacyUserIfNeeded } from '@/lib/auth';
+import { getSelectedPlan, normalizePlan, setCurrentUser, migrateLegacyUserIfNeeded } from '@/lib/auth';
+import type { AccountUser } from '@/lib/auth';
 import {
   PendingSignupVerification,
   savePendingSignupVerification,
 } from '@/lib/pendingSignupVerification';
+
+const DEFAULT_PLAN_LABEL = 'Free Trial';
+
+function formatPlanLabel(plan?: string | null) {
+  if (!plan) return DEFAULT_PLAN_LABEL;
+  return plan
+    .split('_')
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(' ');
+}
+
+function mapSignupResponseToAccountUser(
+  user: { id: string; email: string; firstName: string; lastName: string; role: string; tenantId: string; avatar?: string | null; userType?: string },
+  tenant: { id: string; name: string; slug: string; type: 'AGENCY' | 'BUSINESS'; plan: string } | null | undefined,
+  rememberMe: boolean,
+  deviceId?: string | null
+): AccountUser {
+  const safePlan = tenant?.plan || DEFAULT_PLAN_LABEL;
+  const resolvedUserType = user.userType === 'employee'
+    ? 'employee'
+    : tenant?.type === 'BUSINESS' ? 'business' : 'individual';
+  return {
+    id: user.id,
+    fullName: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
+    email: user.email,
+    password: '',
+    avatar: user.avatar,
+    userType: resolvedUserType as AccountUser['userType'],
+    plan: formatPlanLabel(safePlan),
+    planType: normalizePlan(safePlan),
+    rememberMe,
+    onboardingComplete: false,
+    createdAt: new Date().toISOString(),
+    businessName: tenant?.name,
+    companyName: tenant?.name,
+    deviceId: deviceId || undefined,
+    billingInfo: null,
+    billingSkipped: false,
+    tourStarted: false,
+    tourSkipped: false,
+    authProvider: 'password',
+    socialEmailVerified: true,
+    emailVerified: true,
+    emailVerifiedAt: new Date().toISOString(),
+    onboardingStep: 'business-details',
+    trustedDevices: [],
+  };
+}
 
 const GOOGLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true';
 const APPLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_APPLE_OAUTH_ENABLED === 'true';
@@ -138,7 +187,12 @@ export default function SignUpPage() {
     if (!response.ok || !data?.success) {
       throw new Error(data?.message || 'Failed to send verification email.');
     }
-    return data as { nextRoute?: string; message?: string };
+    return data as {
+      nextRoute?: string;
+      message?: string;
+      user?: { id: string; email: string; firstName: string; lastName: string; role: string; tenantId: string; avatar?: string | null; userType?: string };
+      tenant?: { id: string; name: string; slug: string; type: 'AGENCY' | 'BUSINESS'; plan: string; maxUsers: number; maxLeads: number; maxAutomations: number } | null;
+    };
   };
 
   const handleResendVerification = async () => {
@@ -208,9 +262,17 @@ export default function SignUpPage() {
 
       const result = await sendSignupVerificationEmail(verificationPayload as unknown as Record<string, unknown>);
 
-      // MVP mode: API created the user immediately and returned nextRoute
-      if (result?.nextRoute) {
-        router.push(result.nextRoute);
+      // MVP mode: API created the user immediately — auto-login and redirect
+      if (result?.user) {
+        const mappedUser = mapSignupResponseToAccountUser(
+          result.user,
+          result.tenant,
+          formData.rememberDevice,
+          deviceId
+        );
+        setCurrentUser(mappedUser);
+        router.push(result.nextRoute || '/onboarding/business-details');
+        router.refresh();
         return;
       }
 
