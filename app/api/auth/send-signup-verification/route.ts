@@ -124,6 +124,10 @@ export async function POST(request: NextRequest) {
     const baseUrl = getAppOrigin(payload.origin);
     const verificationUrl = `${baseUrl}/verify-signup?token=${encodeURIComponent(token)}`;
 
+    if ((process.env.EMAIL_TRANSPORT_MODE || 'smtp') === 'console') {
+      console.log('[email-console] verificationUrl:', verificationUrl);
+    }
+
     await deliverEmail({
       from: process.env.SMTP_FROM || 'UniLife <noreply@unilife.local>',
       to: payload.email,
