@@ -231,8 +231,7 @@ export default function PipelinesPage() {
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                          }}
-                          className="p-1 hover:bg-white/50 rounded-lg transition-all"
+                          }}                          title="More options"                          className="p-1 hover:bg-white/50 rounded-lg transition-all"
                         >
                           <MoreHorizontal className="w-4 h-4 text-gray-500" />
                         </button>
@@ -380,6 +379,7 @@ export default function PipelinesPage() {
                   max="100"
                   value={newDeal.probability}
                   onChange={(e) => setNewDeal({...newDeal, probability: parseInt(e.target.value)})}
+                  title="Probability"
                   className="w-full"
                 />
                 <div className="flex justify-between text-sm text-gray-600 mt-1">
@@ -394,6 +394,7 @@ export default function PipelinesPage() {
                 <select
                   value={newDeal.stage}
                   onChange={(e) => setNewDeal({...newDeal, stage: e.target.value})}
+                  title="Stage"
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="New Lead">New Lead</option>
@@ -410,6 +411,7 @@ export default function PipelinesPage() {
                 <select
                   value={newDeal.source}
                   onChange={(e) => setNewDeal({...newDeal, source: e.target.value})}
+                  title="Source"
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="TikTok">TikTok</option>
@@ -462,6 +464,7 @@ export default function PipelinesPage() {
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Deal Details</h3>
               <button 
                 onClick={() => setShowDealDetailModal(false)} 
+                title="Close"
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -542,6 +545,7 @@ export default function PipelinesPage() {
               </div>
               <button 
                 onClick={() => setShowStageDetailModal(false)} 
+                title="Close"
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />

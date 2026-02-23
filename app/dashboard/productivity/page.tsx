@@ -1959,6 +1959,7 @@ export default function ProductivityPage() {
                   <span className="text-sm font-medium">Autopilot Enforcement</span>
                   <button
                     onClick={() => setAutopilotMode(!autopilotMode)}
+                    title="Toggle Autopilot"
                     className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${
                       autopilotMode ? 'bg-green-500' : 'bg-gray-400'
                     }`}
@@ -2276,6 +2277,7 @@ export default function ProductivityPage() {
                     step="0.5"
                     value={wellnessData.sleepHours}
                     onChange={(e) => setWellnessData({ ...wellnessData, sleepHours: parseFloat(e.target.value) || 0 })}
+                    title="Sleep Logged (hrs)"
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                   />
                 </div>
@@ -2290,6 +2292,7 @@ export default function ProductivityPage() {
                     max="10"
                     value={wellnessData.stressLevel}
                     onChange={(e) => setWellnessData({ ...wellnessData, stressLevel: parseFloat(e.target.value) || 0 })}
+                    title="Stress Signal (0-10)"
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                   />
                 </div>
@@ -2381,6 +2384,7 @@ export default function ProductivityPage() {
                     <select
                       value={employeeFinanceDraft.paymentFrequency}
                       onChange={(e) => setEmployeeFinanceDraft({ ...employeeFinanceDraft, paymentFrequency: e.target.value as 'weekly' | 'bi-weekly' | 'monthly' })}
+                      title="Payment Frequency"
                       className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
                     >
                       <option value="weekly">Weekly</option>
@@ -2835,6 +2839,7 @@ export default function ProductivityPage() {
                       min="1" max="28"
                       value={autoPaymentSettings.paymentDay}
                       onChange={(e) => setAutoPaymentSettings({ ...autoPaymentSettings, paymentDay: parseInt(e.target.value) || 25 })}
+                      title="Payment Day (day of month)"
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                     />
                     <p className="text-xs text-gray-500 mt-1">Salaries will be processed on this day each month</p>
@@ -2846,6 +2851,7 @@ export default function ProductivityPage() {
                     <div className="flex items-center gap-3 mt-2">
                       <button
                         onClick={() => setAutoPaymentSettings({ ...autoPaymentSettings, notifyBeforePayment: !autoPaymentSettings.notifyBeforePayment })}
+                        title="Toggle notification before payment"
                         className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${autoPaymentSettings.notifyBeforePayment ? 'bg-green-500' : 'bg-gray-400'}`}
                       >
                         <span className={`inline-block w-4 h-4 transform transition-transform bg-white rounded-full ${autoPaymentSettings.notifyBeforePayment ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -2855,6 +2861,7 @@ export default function ProductivityPage() {
                           type="number" min="1" max="14"
                           value={autoPaymentSettings.notificationDays}
                           onChange={(e) => setAutoPaymentSettings({ ...autoPaymentSettings, notificationDays: parseInt(e.target.value) || 3 })}
+                          title="Notification days before payment"
                           className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-sm"
                         />
                       )}
@@ -2868,6 +2875,7 @@ export default function ProductivityPage() {
                     <div className="flex items-center gap-3 mt-2">
                       <button
                         onClick={() => setAutoPaymentSettings({ ...autoPaymentSettings, requireApproval: !autoPaymentSettings.requireApproval })}
+                        title="Toggle approval requirement"
                         className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${autoPaymentSettings.requireApproval ? 'bg-orange-500' : 'bg-gray-400'}`}
                       >
                         <span className={`inline-block w-4 h-4 transform transition-transform bg-white rounded-full ${autoPaymentSettings.requireApproval ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -3087,6 +3095,7 @@ export default function ProductivityPage() {
                       ...autoPaymentSettings,
                       paymentDay: parseInt(e.target.value) || 1
                     })}
+                    title="Payment Day (Monthly)"
                     className="w-full px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm border-2 border-white/30 text-white placeholder-white/70 font-semibold"
                   />
                 </div>
@@ -3101,6 +3110,7 @@ export default function ProductivityPage() {
                       ...autoPaymentSettings,
                       notificationDays: parseInt(e.target.value) || 0
                     })}
+                    title="Notification Days Before"
                     className="w-full px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm border-2 border-white/30 text-white placeholder-white/70 font-semibold"
                   />
                 </div>
@@ -3157,6 +3167,7 @@ export default function ProductivityPage() {
                 </div>
                 <button
                   onClick={() => setAutopilotMode(!autopilotMode)}
+                  title="Toggle Autopilot"
                   className={`relative inline-flex items-center h-12 rounded-full w-24 transition-colors ${
                     autopilotMode ? 'bg-green-500' : 'bg-gray-400'
                   }`}
@@ -3496,6 +3507,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                         <select
                           value={task.status}
                           onChange={(e) => updateTaskStatus(task.id, e.target.value as Task['status'])}
+                          title="Task Status"
                           className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer ${getStatusColor(task.status)}
                                    border-2 border-transparent focus:border-blue-500 focus:outline-none`}
                         >
@@ -3525,6 +3537,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                                       type="checkbox"
                                       checked={stage.completed}
                                       onChange={() => toggleStageCompletion(task.id, stage.id, assignedEmployee?.id || '')}
+                                      title="Toggle stage completion"
                                       className="w-5 h-5 cursor-pointer mt-1"
                                     />
                                     <div className="flex-1">
@@ -4345,6 +4358,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                 </h2>
                 <button 
                   onClick={() => setShowOutcomeModal(false)} 
+                  title="Close"
                   className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
                   <X className="w-6 h-6" />
@@ -4402,6 +4416,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                     <select
                       value={newOutcome.priority}
                       onChange={(e) => setNewOutcome({ ...newOutcome, priority: parseInt(e.target.value) as 1 | 2 | 3 })}
+                      title="Priority"
                       className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
                     >
                       <option value={1}>🔴 Priority 1 - Critical</option>
@@ -4418,6 +4433,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                       type="date"
                       value={newOutcome.deadline}
                       onChange={(e) => setNewOutcome({ ...newOutcome, deadline: e.target.value })}
+                      title="Deadline"
                       className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
                     />
                   </div>
@@ -4497,6 +4513,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                 </h2>
                 <button 
                   onClick={() => setShowTaskModal(false)} 
+                  title="Close"
                   className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
                   <X className="w-6 h-6" />
@@ -4557,6 +4574,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                     <select
                       value={newManualTask.energyRequired}
                       onChange={(e) => setNewManualTask({ ...newManualTask, energyRequired: e.target.value as 'low' | 'medium' | 'high' })}
+                      title="Energy Required"
                       className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
                     >
                       <option value="low">🟢 Low</option>
@@ -4591,7 +4609,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full shadow-2xl">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Create New Task</h2>
-                <button onClick={() => setShowTaskModal(false)} className="text-gray-500 hover:text-gray-700">
+                <button onClick={() => setShowTaskModal(false)} title="Close" className="text-gray-500 hover:text-gray-700">
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -4632,6 +4650,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                   <select
                     value={newTask.assignedTo}
                     onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
+                    title="Assign to Employee"
                     className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg
                              bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
                   >
@@ -4653,6 +4672,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                       type="date"
                       value={newTask.deadline}
                       onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                      title="Deadline"
                       className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg
                                bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
                     />
@@ -4665,6 +4685,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                     <select
                       value={newTask.priority}
                       onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
+                      title="Priority"
                       className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg
                                bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
                     >
@@ -4701,6 +4722,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                   <select
                     value={newTask.organizationalGoal}
                     onChange={(e) => setNewTask({ ...newTask, organizationalGoal: e.target.value })}
+                    title="Organizational Goal"
                     className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg
                              bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
                   >
@@ -4775,7 +4797,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Add New Employee</h2>
-                <button onClick={() => setShowEmployeeModal(false)} className="text-gray-500 hover:text-gray-700">
+                <button onClick={() => setShowEmployeeModal(false)} title="Close" className="text-gray-500 hover:text-gray-700">
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -4857,6 +4879,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                   <select
                     value={newEmployee.team}
                     onChange={(e) => setNewEmployee({ ...newEmployee, team: e.target.value })}
+                    title="Team"
                     className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg
                              bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
                   >
@@ -4893,7 +4916,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full shadow-2xl">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Create New Team</h2>
-                <button onClick={() => setShowTeamModal(false)} className="text-gray-500 hover:text-gray-700">
+                <button onClick={() => setShowTeamModal(false)} title="Close" className="text-gray-500 hover:text-gray-700">
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -4922,6 +4945,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                       <button
                         key={color}
                         onClick={() => setNewTeam({ ...newTeam, color })}
+                        title={`Select color ${color}`}
                         className={`w-12 h-12 rounded-lg transition-all ${newTeam.color === color ? 'ring-4 ring-offset-2 ring-gray-400' : ''}`}
                         style={{ backgroundColor: color }}
                       />
@@ -4974,7 +4998,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                     )}
                   </div>
                 </div>
-                <button onClick={() => setSelectedEmployee(null)} className="text-gray-500 hover:text-gray-700">
+                <button onClick={() => setSelectedEmployee(null)} title="Close" className="text-gray-500 hover:text-gray-700">
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -5107,7 +5131,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full shadow-2xl">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Add Asset to Task</h2>
-                <button onClick={() => setShowAssetModal(false)} className="text-gray-500 hover:text-gray-700">
+                <button onClick={() => setShowAssetModal(false)} title="Close" className="text-gray-500 hover:text-gray-700">
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -5125,6 +5149,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                   <select
                     value={newAsset.type}
                     onChange={(e) => setNewAsset({ ...newAsset, type: e.target.value as any })}
+                    title="Asset Type"
                     className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg
                              bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
                   >
@@ -5158,6 +5183,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                     </label>
                     <input
                       type="file"
+                      title="Upload File"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
@@ -5223,6 +5249,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                     <select
                       value={newAsset.stageId}
                       onChange={(e) => setNewAsset({ ...newAsset, stageId: e.target.value })}
+                      title="Link to Stage"
                       className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg
                                bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
                     >
@@ -5263,7 +5290,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">📨 Quick Message</h2>
-                <button onClick={() => setShowMessageModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <button onClick={() => setShowMessageModal(false)} title="Close" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -5327,7 +5354,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">📅 Schedule Progress Meeting</h2>
-                <button onClick={() => setShowMeetingModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <button onClick={() => setShowMeetingModal(false)} title="Close" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -5407,7 +5434,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">📸 Upload Profile Picture</h2>
-                <button onClick={() => setShowProfileUploadModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <button onClick={() => setShowProfileUploadModal(false)} title="Close" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -5435,6 +5462,7 @@ role === 'employee' ? ['tasks-completed', 'team-contribution', 'skill-growth'] :
                   <input
                     type="file"
                     accept="image/*"
+                    title="Upload New Photo"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {

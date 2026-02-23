@@ -584,6 +584,7 @@ export default function LeadsPage() {
             <select 
               value={sourceFilter}
               onChange={(e) => handleSourceFilterChange(e.target.value)}
+              title="Filter by source"
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
             >
               <option value="all">All Sources</option>
@@ -596,6 +597,7 @@ export default function LeadsPage() {
             <select 
               value={sortBy}
               onChange={(e) => handleSortChange(e.target.value)}
+              title="Sort leads"
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
             >
               <option value="recent">Sort by: Recent</option>
@@ -720,6 +722,7 @@ export default function LeadsPage() {
                 <select
                   value={newLead.source}
                   onChange={(e) => setNewLead({...newLead, source: e.target.value})}
+                  title="Source"
                   className="w-full px-4 py-2 glass-input rounded-lg"
                 >
                   <option value="TikTok">TikTok</option>
@@ -761,6 +764,7 @@ export default function LeadsPage() {
                   type="text"
                   value={editingLead.name}
                   onChange={(e) => setEditingLead({...editingLead, name: e.target.value})}
+                  title="Name"
                   className="w-full px-4 py-2 glass-input rounded-lg"
                 />
               </div>
@@ -770,6 +774,7 @@ export default function LeadsPage() {
                   type="email"
                   value={editingLead.email}
                   onChange={(e) => setEditingLead({...editingLead, email: e.target.value})}
+                  title="Email"
                   className="w-full px-4 py-2 glass-input rounded-lg"
                 />
               </div>
@@ -779,6 +784,7 @@ export default function LeadsPage() {
                   type="tel"
                   value={editingLead.phone}
                   onChange={(e) => setEditingLead({...editingLead, phone: e.target.value})}
+                  title="Phone"
                   className="w-full px-4 py-2 glass-input rounded-lg"
                 />
               </div>
@@ -787,6 +793,7 @@ export default function LeadsPage() {
                 <select
                   value={editingLead.status}
                   onChange={(e) => setEditingLead({...editingLead, status: e.target.value})}
+                  title="Status"
                   className="w-full px-4 py-2 glass-input rounded-lg"
                 >
                   <option value="NEW">New</option>
@@ -800,6 +807,7 @@ export default function LeadsPage() {
                 <select
                   value={editingLead.source}
                   onChange={(e) => setEditingLead({...editingLead, source: e.target.value})}
+                  title="Source"
                   className="w-full px-4 py-2 glass-input rounded-lg"
                 >
                   <option value="TikTok">TikTok</option>
@@ -817,6 +825,7 @@ export default function LeadsPage() {
                   max="100"
                   value={editingLead.score}
                   onChange={(e) => setEditingLead({...editingLead, score: parseInt(e.target.value)})}
+                  title="Score (0-100)"
                   className="w-full px-4 py-2 glass-input rounded-lg"
                 />
               </div>

@@ -471,6 +471,7 @@ export default function DashboardPage() {
           <p className="text-sm text-amber-800 dark:text-amber-300">{accessDeniedMessage}</p>
           <button
             onClick={() => setAccessDeniedMessage('')}
+            title="Dismiss"
             className="text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100"
           >
             <X className="w-4 h-4" />
@@ -517,6 +518,7 @@ export default function DashboardPage() {
             </div>
             <button
               onClick={() => setShowAutopilotBanner(false)}
+              title="Dismiss"
               className="p-2 glass-button rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
@@ -651,6 +653,7 @@ export default function DashboardPage() {
         <div className="glass-card rounded-2xl p-6 border-2 border-blue-500 relative">
           <button
             onClick={handleDismissTourBanner}
+            title="Dismiss tour"
             className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             <X className="w-4 h-4 text-gray-600 dark:text-gray-400" />
@@ -1198,7 +1201,7 @@ export default function DashboardPage() {
                 {activeModal === 'messages' && '💬 Messages by Platform'}
                 {activeModal === 'revenue' && '💰 Revenue Breakdown'}
               </h3>
-              <button onClick={closeModal} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+              <button onClick={closeModal} title="Close" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
                 <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
             </div>
