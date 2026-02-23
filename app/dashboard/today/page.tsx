@@ -489,7 +489,7 @@ export default function TodayPage() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">✏️ Edit Today's Focus</h3>
-              <button onClick={() => setShowEditFocusModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+              <button onClick={() => setShowEditFocusModal(false)} title="Close" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -506,6 +506,7 @@ export default function TodayPage() {
                   max="16"
                   value={productiveHours}
                   onChange={(e) => setProductiveHours(parseInt(e.target.value))}
+                  title="Productive Hours Target"
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
                 />
               </div>
@@ -522,6 +523,7 @@ export default function TodayPage() {
                     max="10"
                     value={energyLevel}
                     onChange={(e) => setEnergyLevel(parseInt(e.target.value))}
+                    title="Energy Level"
                     className="flex-1"
                   />
                   <span className="text-2xl font-bold text-purple-600 w-12 text-center">{energyLevel}</span>
@@ -590,7 +592,7 @@ export default function TodayPage() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">➕ Add Priority Task</h3>
-              <button onClick={() => setShowAddTaskModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+              <button onClick={() => setShowAddTaskModal(false)} title="Close" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -618,6 +620,7 @@ export default function TodayPage() {
                 <select
                   value={newTaskTime}
                   onChange={(e) => setNewTaskTime(e.target.value)}
+                  title="Estimated Time"
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500"
                 >
                   <option value="15">15 minutes</option>
@@ -693,7 +696,7 @@ export default function TodayPage() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">💼 Business Owner Tools</h3>
-              <button onClick={() => setShowBusinessOwnerModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+              <button onClick={() => setShowBusinessOwnerModal(false)} title="Close" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>

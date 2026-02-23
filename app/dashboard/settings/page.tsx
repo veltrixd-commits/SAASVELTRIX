@@ -481,6 +481,7 @@ function ProfileSettings({ settings, setSettings, userData }: any) {
             <select
               value={settings.timezone}
               onChange={(e) => setSettings({...settings, timezone: e.target.value})}
+              title="Timezone"
               className="w-full px-4 py-3 glass-input rounded-xl border-0 focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-white"
             >
               <option value="Africa/Johannesburg">Africa/Johannesburg (South Africa)</option>
@@ -498,6 +499,7 @@ function ProfileSettings({ settings, setSettings, userData }: any) {
             <select
               value={settings.language}
               onChange={(e) => setSettings({...settings, language: e.target.value})}
+              title="Language"
               className="w-full px-4 py-3 glass-input rounded-xl border-0 focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-white"
             >
               <option value="en">English</option>
@@ -615,6 +617,7 @@ function BusinessSettings({ settings, setSettings, revenueError, handleMonthlyRe
             <select
               value={settings.industry}
               onChange={(e) => setSettings({...settings, industry: e.target.value})}
+              title="Industry"
               className="w-full px-4 py-3 glass-input rounded-xl border-0 focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
             >
               <option value="">Select industry...</option>
@@ -636,6 +639,7 @@ function BusinessSettings({ settings, setSettings, revenueError, handleMonthlyRe
             <select
               value={settings.companySize}
               onChange={(e) => setSettings({...settings, companySize: e.target.value})}
+              title="Company Size"
               className="w-full px-4 py-3 glass-input rounded-xl border-0 focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
             >
               <option value="">Select size...</option>
@@ -685,6 +689,7 @@ function BusinessSettings({ settings, setSettings, revenueError, handleMonthlyRe
             <select
               value={settings.primaryGoal}
               onChange={(e) => setSettings({...settings, primaryGoal: e.target.value})}
+              title="Primary Goal"
               className="w-full px-4 py-3 glass-input rounded-xl border-0 focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-white"
             >
               <option value="">Select goal...</option>
@@ -1391,6 +1396,7 @@ function PrivacySettings({ settings, setSettings, userData }: any) {
             <select
               value={settings.permissions.earningsVisibility}
               onChange={(e) => setSettings({...settings, permissions: {...settings.permissions, earningsVisibility: e.target.value}})}
+              title="Earnings Visibility"
               className="w-full px-4 py-2 glass-input rounded-lg text-gray-900 dark:text-white"
             >
               <option value="private">🔒 Private (only you)</option>
@@ -1408,6 +1414,7 @@ function PrivacySettings({ settings, setSettings, userData }: any) {
             <select
               value={settings.permissions.performanceVisibility}
               onChange={(e) => setSettings({...settings, permissions: {...settings.permissions, performanceVisibility: e.target.value}})}
+              title="Performance Visibility"
               className="w-full px-4 py-2 glass-input rounded-lg text-gray-900 dark:text-white"
             >
               <option value="private">🔒 Private (only you)</option>
@@ -1425,6 +1432,7 @@ function PrivacySettings({ settings, setSettings, userData }: any) {
             <select
               value={settings.permissions.wellnessVisibility}
               onChange={(e) => setSettings({...settings, permissions: {...settings.permissions, wellnessVisibility: e.target.value}})}
+              title="Wellness Data Sharing"
               className="w-full px-4 py-2 glass-input rounded-lg text-gray-900 dark:text-white"
             >
               <option value="private">🔒 Private (only you)</option>

@@ -268,6 +268,7 @@ export default function ProductsPage() {
           <select 
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
+            title="Filter by type"
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
           >
             <option value="ALL">All Types</option>
@@ -345,6 +346,7 @@ export default function ProductsPage() {
                   <select
                     value={newProduct.type}
                     onChange={(e) => handleInputChange('type', e.target.value)}
+                    title="Type"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   >
                     <option value="SERVICE">Service</option>
@@ -564,6 +566,7 @@ export default function ProductsPage() {
                     type="text"
                     value={editingProduct.name}
                     onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})}
+                    title="Name"
                     className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -573,6 +576,7 @@ export default function ProductsPage() {
                   <select
                     value={editingProduct.type}
                     onChange={(e) => setEditingProduct({...editingProduct, type: e.target.value as 'PRODUCT' | 'SERVICE'})}
+                    title="Type"
                     className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   >
                     <option value="SERVICE">Service</option>
@@ -587,6 +591,7 @@ export default function ProductsPage() {
                   value={editingProduct.description}
                   onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})}
                   rows={3}
+                  title="Description"
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
@@ -601,6 +606,7 @@ export default function ProductsPage() {
                       type="number"
                       value={editingProduct.costProduction}
                       onChange={(e) => setEditingProduct({...editingProduct, costProduction: parseFloat(e.target.value) || 0})}
+                      title="Production Cost (R)"
                       className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
@@ -610,6 +616,7 @@ export default function ProductsPage() {
                       type="number"
                       value={editingProduct.costPackaging}
                       onChange={(e) => setEditingProduct({...editingProduct, costPackaging: parseFloat(e.target.value) || 0})}
+                      title="Packaging Cost (R)"
                       className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
@@ -619,6 +626,7 @@ export default function ProductsPage() {
                       type="number"
                       value={editingProduct.costDelivery}
                       onChange={(e) => setEditingProduct({...editingProduct, costDelivery: parseFloat(e.target.value) || 0})}
+                      title="Delivery Cost (R)"
                       className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
@@ -635,6 +643,7 @@ export default function ProductsPage() {
                       type="number"
                       value={editingProduct.sellingPrice}
                       onChange={(e) => setEditingProduct({...editingProduct, sellingPrice: parseFloat(e.target.value) || 0})}
+                      title="Selling Price (R)"
                       className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 text-lg font-semibold"
                     />
                   </div>
@@ -644,6 +653,7 @@ export default function ProductsPage() {
                       type="text"
                       value={`${calculateProfitMargin(editingProduct.sellingPrice, editingProduct.costProduction + editingProduct.costPackaging + editingProduct.costDelivery).toFixed(1)}%`}
                       disabled
+                      title="Profit Margin"
                       className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-gray-100 text-lg font-semibold"
                     />
                   </div>

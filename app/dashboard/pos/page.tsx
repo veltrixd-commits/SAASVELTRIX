@@ -518,7 +518,6 @@ export default function POSPage() {
                   ? 'bg-red-600 text-white hover:bg-red-700'
                   : 'bg-emerald-600 text-white hover:bg-emerald-700'
               }`}
-              aria-pressed={storefrontMode}
             >
               <Lock className="w-4 h-4" />
               {storefrontMode ? 'Exit Storefront Mode' : 'Enter Storefront Mode'}
@@ -996,6 +995,7 @@ export default function POSPage() {
                         </div>
                         <button
                           onClick={() => removeFromCart(item.id)}
+                          title="Remove from cart"
                           className="text-red-600 hover:text-red-700 p-1"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1005,6 +1005,7 @@ export default function POSPage() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => updateQuantity(item.id, -1)}
+                            title="Decrease quantity"
                             className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500"
                           >
                             <Minus className="w-4 h-4" />
@@ -1014,6 +1015,7 @@ export default function POSPage() {
                           </span>
                           <button
                             onClick={() => updateQuantity(item.id, 1)}
+                            title="Increase quantity"
                             className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500"
                           >
                             <Plus className="w-4 h-4" />
@@ -1100,6 +1102,7 @@ export default function POSPage() {
               <button 
                 onClick={() => !isProcessing && setShowPaymentModal(false)} 
                 disabled={isProcessing}
+                title="Close"
                 className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
               >
                 <X className="w-6 h-6" />
@@ -1449,7 +1452,7 @@ export default function POSPage() {
                 <Receipt className="w-6 h-6 text-green-600" />
                 Receipt
               </h3>
-              <button onClick={() => setShowReceipt(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowReceipt(false)} title="Close" className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
               </button>
             </div>

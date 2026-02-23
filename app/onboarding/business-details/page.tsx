@@ -137,6 +137,7 @@ export default function BusinessDetailsPage() {
             value={formData.industry}
             onChange={handleChange}
             required
+            title="Industry"
             className="w-full px-4 py-3 glass-input rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
           >
             <option value="">Select an industry</option>
@@ -160,6 +161,7 @@ export default function BusinessDetailsPage() {
               value={formData.businessSize}
               onChange={handleChange}
               required
+              title="Business Size"
               className="w-full pl-12 pr-4 py-3 glass-input rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
             >
               <option value="">Select business size</option>

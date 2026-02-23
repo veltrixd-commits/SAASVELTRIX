@@ -214,11 +214,12 @@ export default function SchedulerPage() {
                     </div>
                     
                     <div className="flex gap-2 ml-4">
-                      <button className="p-2 glass-button rounded-lg hover:scale-110 transition-all">
+                      <button title="Edit post" className="p-2 glass-button rounded-lg hover:scale-110 transition-all">
                         <Edit className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                       </button>
                       <button 
                         onClick={() => deletePost(post.id)}
+                        title="Delete post"
                         className="p-2 glass-button rounded-lg hover:scale-110 transition-all hover:bg-red-50 dark:hover:bg-red-900/20"
                       >
                         <Trash2 className="w-4 h-4 text-red-600" />
@@ -240,6 +241,7 @@ export default function SchedulerPage() {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Schedule a post now</h2>
               <button 
                 onClick={() => setShowModal(false)}
+                title="Close"
                 className="p-2 glass-button rounded-lg hover:scale-110 transition-all"
               >
                 <XCircle className="w-6 h-6 text-gray-600 dark:text-gray-400" />
@@ -304,6 +306,7 @@ export default function SchedulerPage() {
                           setMediaFile(null);
                           setMediaPreview('');
                         }}
+                        title="Remove media"
                         className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all"
                       >
                         <XCircle className="w-5 h-5" />
@@ -313,7 +316,7 @@ export default function SchedulerPage() {
                 </div>
               </div>
 
-              {/* Platform Selection */}
+              {/* Platform Selection */}}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Select platforms
@@ -361,6 +364,7 @@ export default function SchedulerPage() {
                         reader.readAsDataURL(file);
                       }
                     }}
+                    title="Add media"
                     className="w-full px-4 py-3 glass-input rounded-xl text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300"
                   />
                   {mediaPreview && (
@@ -375,6 +379,7 @@ export default function SchedulerPage() {
                           setMediaFile(null);
                           setMediaPreview('');
                         }}
+                        title="Remove media"
                         className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
                       >
                         <XCircle className="w-5 h-5" />
@@ -394,6 +399,7 @@ export default function SchedulerPage() {
                     type="date"
                     value={scheduledDate}
                     onChange={(e) => setScheduledDate(e.target.value)}
+                    title="Drop date"
                     className="w-full px-4 py-3 glass-input rounded-xl text-gray-900 dark:text-white"
                   />
                 </div>
@@ -405,6 +411,7 @@ export default function SchedulerPage() {
                     type="time"
                     value={scheduledTime}
                     onChange={(e) => setScheduledTime(e.target.value)}
+                    title="Drop time"
                     className="w-full px-4 py-3 glass-input rounded-xl text-gray-900 dark:text-white"
                   />
                 </div>

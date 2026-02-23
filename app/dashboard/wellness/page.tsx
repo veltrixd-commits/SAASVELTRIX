@@ -527,6 +527,7 @@ export default function WellnessPage() {
               <select
                 value={String(liveSyncIntervalMs)}
                 onChange={(e) => setLiveSyncIntervalMs(parseInt(e.target.value, 10))}
+                title="Sync interval"
                 className="rounded border border-emerald-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-emerald-700 dark:bg-gray-800 dark:text-gray-300 max-w-[145px]"
               >
                 <option value="15000">Sync every 15s</option>
@@ -537,6 +538,7 @@ export default function WellnessPage() {
               <select
                 value={String(staleAfterMs)}
                 onChange={(e) => setStaleAfterMs(parseInt(e.target.value, 10))}
+                title="Stale threshold"
                 className="rounded border border-emerald-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-emerald-700 dark:bg-gray-800 dark:text-gray-300 max-w-[145px]"
               >
                 <option value="120000">Stale after 2m</option>
@@ -1148,6 +1150,7 @@ function MorningRoutine() {
                 type="checkbox"
                 checked={routine.completed}
                 className="w-5 h-5 rounded"
+                title="Routine completion status"
                 readOnly
               />
               <div className="flex-1">
@@ -1186,6 +1189,7 @@ function MorningRoutine() {
                   type="time"
                   value={newActivity.time}
                   onChange={(e) => setNewActivity({...newActivity, time: e.target.value})}
+                  title="Time"
                   className="w-full px-4 py-2 glass-input rounded-lg"
                 />
               </div>

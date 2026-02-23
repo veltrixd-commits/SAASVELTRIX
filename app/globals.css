@@ -151,8 +151,6 @@ body.dark {
   
   /* Firefox scrollbar */
   .custom-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
     scroll-behavior: smooth;
   }
 }

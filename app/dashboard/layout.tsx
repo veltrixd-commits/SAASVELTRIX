@@ -402,7 +402,6 @@ export default function DashboardLayout({
                   href={link.href}
                   className="flex items-center gap-3 px-4 py-3 glass-nav rounded-xl transition-all font-medium group text-gray-700 hover:text-primary-600"
                   onClick={() => setSidebarOpen(false)}
-                  style={{ animationDelay: `${index * 0.05}s` }}
                 >
                   <IconComponent className={`w-5 h-5 ${link.color} group-hover:scale-110 transition-all duration-200`} />
                   <span className="text-sm">{link.label}</span>
@@ -411,7 +410,7 @@ export default function DashboardLayout({
             })}
           </div>
 
-          {/* Personal OS Section */}
+          {/* Personal OS Section */}}
           <div className="mb-6">
             <div className="px-4 mb-2">
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Personal OS</span>
@@ -425,7 +424,6 @@ export default function DashboardLayout({
                     href={link.href}
                     className="flex items-center gap-3 px-4 py-3 glass-nav rounded-xl transition-all font-medium group text-gray-700 hover:text-primary-600"
                     onClick={() => setSidebarOpen(false)}
-                    style={{ animationDelay: `${index * 0.05}s` }}
                   >
                     <IconComponent className={`w-5 h-5 ${link.color} group-hover:scale-110 transition-all duration-200`} />
                     <span className="text-sm">{link.label}</span>
@@ -435,7 +433,7 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          {/* Business Tools Section */}
+          {/* Business Tools Section */}}
           <div className="mb-4">
             <div className="px-4 mb-2">
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Business Tools</span>
@@ -470,7 +468,6 @@ export default function DashboardLayout({
                     href={link.href}
                     className="flex items-center gap-3 px-4 py-3 glass-nav rounded-xl transition-all font-medium group text-gray-700 hover:text-primary-600"
                     onClick={() => setSidebarOpen(false)}
-                    style={{ animationDelay: `${index * 0.05}s` }}
                   >
                     <IconComponent className={`w-5 h-5 ${link.color} group-hover:scale-110 transition-all duration-200`} />
                     <span className="text-sm">{link.label}</span>
