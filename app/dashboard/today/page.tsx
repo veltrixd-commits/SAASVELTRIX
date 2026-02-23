@@ -184,7 +184,7 @@ export default function TodayPage() {
       {userMode === 'businessOwner' && (
         <button
           onClick={() => setShowBusinessOwnerModal(true)}
-          className="fixed bottom-24 right-6 z-50 w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all flex items-center justify-center group"
+          className="fixed bottom-52 right-4 z-50 w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all flex items-center justify-center group"
           title="Business Owner Tools"
         >
           <Briefcase className="w-7 h-7" />
@@ -276,7 +276,7 @@ export default function TodayPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-4 gap-4 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
               <p className="text-white/70 text-xs mb-1">Energy</p>
               <p className="text-xl font-bold">

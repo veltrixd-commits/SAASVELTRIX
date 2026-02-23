@@ -91,6 +91,8 @@ export default function IdeasPage() {
           const base64Audio = reader.result as string;
           setPendingAudioBlob(base64Audio);
           setPendingDuration(recordingTime);
+          // Pre-fill notes with the live transcript so user can edit before saving
+          setNewIdeaNotes(recognitionRef.current ? '' : '');
           setShowTitleModal(true);
         };
 
@@ -535,6 +537,27 @@ export default function IdeasPage() {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-purple-600" />
+                    Voice Transcript
+                    <span className="text-xs text-gray-400">{liveTranscript ? `(${liveTranscript.split(' ').length} words captured)` : '(no speech detected)'}</span>
+                  </label>
+                  {liveTranscript ? (
+                    <textarea
+                      value={liveTranscript}
+                      onChange={(e) => setLiveTranscript(e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-2 border-2 border-purple-300 dark:border-purple-700 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-gray-900 dark:text-white focus:border-purple-500 focus:outline-none text-sm"
+                      placeholder="Your spoken words appear here..."
+                    />
+                  ) : (
+                    <div className="w-full px-4 py-3 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-400 text-sm italic">
+                      No speech was transcribed. Start talking louder while recording next time, or type your idea in Quick Notes below.
+                    </div>
+                  )}
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Quick Notes (Optional)
                   </label>
@@ -589,9 +612,7 @@ export default function IdeasPage() {
                     <Clock className="w-4 h-4 inline mr-1" />
                     Recording duration: <strong>{formatTime(pendingDuration)}</strong>
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Transcript preview: {liveTranscript ? liveTranscript.slice(0, 120) + (liveTranscript.length > 120 ? '…' : '') : 'Say something while recording to auto-generate notes.'}
-                  </p>
+
                 </div>
               </div>
 

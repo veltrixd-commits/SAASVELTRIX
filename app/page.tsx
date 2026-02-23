@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Music, MessageCircle, Facebook, Instagram, Linkedin, Globe, Zap, Lock, Infinity, Bot, Building2, DollarSign, Video, Heart } from 'lucide-react';
+import { Music, MessageCircle, Facebook, Instagram, Linkedin, Globe, Zap, Lock, Infinity, Bot, Building2, DollarSign, Video, Heart, GraduationCap } from 'lucide-react';
 import { isAuthenticated, getCurrentUser, setSelectedPlan, getPostLoginRoute } from '@/lib/auth';
 
 export default function HomePage() {
@@ -144,6 +144,37 @@ export default function HomePage() {
             description="No per-contact fees. Pay only for hosting. Built for African entrepreneurs."
             highlight="Own your infra"
           />
+        </div>
+
+        {/* Student OS Section */}
+        <div className="glass-card rounded-xl sm:rounded-2xl p-6 sm:p-8 lg:p-10 mb-12 sm:mb-16 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-pink-900/20 border-2 border-indigo-200 dark:border-indigo-700">
+          <div className="flex flex-col md:flex-row items-center gap-6 lg:gap-10">
+            <div className="flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xl">
+              <GraduationCap className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start mb-2">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Student OS</h2>
+                <span className="px-3 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full text-xs font-bold shadow">R17/MONTH</span>
+              </div>
+              <p className="text-base sm:text-lg text-gray-700 dark:text-gray-300 mb-4">
+                APS Calculator, Course Matcher &amp; SA University Guide — built for South African students.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-5">
+                {['APS Calculator', 'Course Suggestor', 'SA Universities', 'Personal OS', 'Study Planner'].map(tag => (
+                  <span key={tag} className="px-2.5 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-semibold">{tag}</span>
+                ))}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+                <a href="/pricing" className="inline-block bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:scale-105 transition-all shadow-lg text-sm text-center">
+                  Start for R17/mo →
+                </a>
+                <a href="/dashboard/students" className="inline-block glass-button px-6 py-2.5 rounded-xl font-semibold text-gray-700 dark:text-gray-300 hover:scale-105 transition-all shadow text-sm text-center">
+                  Try APS Calculator
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Platform Support */}

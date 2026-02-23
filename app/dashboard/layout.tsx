@@ -36,6 +36,7 @@ import {
   Video,
   ShoppingCart,
   Lightbulb,
+  GraduationCap,
   LogOut
 } from 'lucide-react';
 import { initializeDemoData } from '@/lib/demoData';
@@ -306,6 +307,7 @@ export default function DashboardLayout({
     // Personal OS Section
     { href: '/dashboard/productivity', label: 'Productivity', icon: Target, color: 'text-purple-600', section: 'personal', permission: 'canAccessProductivity' },
     { href: '/dashboard/ideas', label: 'Ideas', icon: Lightbulb, color: 'text-yellow-500', section: 'personal', permission: null },
+    { href: '/dashboard/students', label: 'Students', icon: GraduationCap, color: 'text-indigo-600', section: 'personal', permission: null },
     { href: '/dashboard/wellness', label: 'Wellness', icon: Heart, color: 'text-green-600', section: 'personal', permission: 'canAccessWellness' },
     { href: '/dashboard/performance', label: 'Performance', icon: TrendingUp, color: 'text-yellow-600', section: 'personal', permission: 'canAccessPerformance' },
     { href: '/dashboard/content-studio', label: 'Content Studio', icon: Video, color: 'text-pink-600', section: 'personal', permission: 'canAccessContentStudio' },

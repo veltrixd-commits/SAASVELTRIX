@@ -251,6 +251,7 @@ export default function ProductivityPage() {
     requireApproval: false
   });
   const [showSalaryModal, setShowSalaryModal] = useState(false);
+  const [showSalarySettings, setShowSalarySettings] = useState(false);
   const [pendingPayments, setPendingPayments] = useState<SalaryPayment[]>([]);
   const [currentUserMeta, setCurrentUserMeta] = useState<{ id: string; email: string; userType: 'individual' | 'employee' | 'creator' | 'business' }>({
     id: '',
@@ -1537,6 +1538,56 @@ export default function ProductivityPage() {
     alert(`✅ Payment approved for ${payment.employeeName}: R${payment.amount.toLocaleString()}`);
   };
 
+  const generatePayslip = (employee: Employee, payment: SalaryPayment) => {
+    const now = new Date();
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Payslip - ${employee.name}</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; color: #111; }
+    .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 16px; margin-bottom: 24px; }
+    .header h1 { font-size: 22px; margin: 0 0 4px; }
+    .header p { margin: 2px 0; color: #555; font-size: 13px; }
+    .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+    .row.total { font-weight: bold; font-size: 15px; border-top: 2px solid #333; border-bottom: none; margin-top: 8px; }
+    .label { color: #555; }
+    .amount { font-weight: 600; }
+    .footer { margin-top: 32px; text-align: center; font-size: 11px; color: #999; }
+    .badge { display: inline-block; background: #16a34a; color: #fff; padding: 2px 10px; border-radius: 20px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>PAYSLIP</h1>
+    <p>${payment.period}</p>
+    <p>Generated: ${now.toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+  </div>
+  <div class="row"><span class="label">Employee Name</span><span class="amount">${employee.name}</span></div>
+  <div class="row"><span class="label">Role</span><span>${employee.role}</span></div>
+  <div class="row"><span class="label">Email</span><span>${employee.email}</span></div>
+  <div class="row"><span class="label">Payment Frequency</span><span>${employee.salaryFrequency || 'Monthly'}</span></div>
+  ${employee.bankDetails ? `<div class="row"><span class="label">Bank</span><span>${employee.bankDetails.bank} • ${employee.bankDetails.accountNumber}</span></div>` : ''}
+  <div class="row"><span class="label">Gross Salary</span><span class="amount">R ${payment.amount.toLocaleString('en-ZA')}</span></div>
+  <div class="row"><span class="label">Deductions</span><span>R 0.00</span></div>
+  <div class="row total"><span>Net Pay</span><span>R ${payment.amount.toLocaleString('en-ZA')}</span></div>
+  <div class="row"><span class="label">Payment Method</span><span>${payment.paymentMethod === 'bank-transfer' ? 'Bank Transfer' : payment.paymentMethod}</span></div>
+  <div class="row"><span class="label">Payment Date</span><span>${new Date(payment.paymentDate).toLocaleDateString('en-ZA')}</span></div>
+  <div class="row"><span class="label">Status</span><span><span class="badge">${payment.status.toUpperCase()}</span></span></div>
+  <div class="footer">This is a computer-generated payslip • Payment ID: ${payment.id}</div>
+</body>
+</html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Payslip_${employee.name.replace(/\s+/g, '_')}_${payment.period.replace(/\s+/g, '_')}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const rejectPendingPayment = (paymentId: string, reason: string) => {
     const payment = pendingPayments.find(p => p.id === paymentId);
     if (!payment) return;
@@ -2735,28 +2786,114 @@ export default function ProductivityPage() {
         {/* 💰 SALARIES VIEW                             */}
         {/* =============================================*/}
         {activeView === 'salaries' && (
-          <div className="space-y-6" id={VIEW_IDS['salaries']}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+          <div className="space-y-6 pb-32" id={VIEW_IDS['salaries']}>
+            {/* Header + Auto-Pay Toggle */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3 flex-1">
                 <DollarSign className="w-8 h-8 text-green-600" />
                 Salary Management
               </h2>
-              <button
-                onClick={() => {
-                  setAutoPaymentSettings({
-                    ...autoPaymentSettings,
-                    enabled: !autoPaymentSettings.enabled
-                  });
-                }}
-                className={`px-4 py-2 rounded-lg font-semibold ${
-                  autoPaymentSettings.enabled
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-300 text-gray-700'
-                }`}
-              >
-                {autoPaymentSettings.enabled ? '✅ Auto-Pay: ON' : '⏸️ Auto-Pay: OFF'}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    const next = !autoPaymentSettings.enabled;
+                    setAutoPaymentSettings({ ...autoPaymentSettings, enabled: next });
+                    if (next) setShowSalarySettings(true);
+                  }}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                    autoPaymentSettings.enabled
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  {autoPaymentSettings.enabled ? '✅ Auto-Pay: ON' : '⏸️ Auto-Pay: OFF'}
+                </button>
+                {autoPaymentSettings.enabled && (
+                  <button
+                    onClick={() => setShowSalarySettings(!showSalarySettings)}
+                    className="px-3 py-2 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium hover:bg-blue-200 transition-all"
+                  >
+                    ⚙️ Schedule
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* Auto-Pay Settings Panel */}
+            {autoPaymentSettings.enabled && showSalarySettings && (
+              <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700 rounded-2xl p-5">
+                <h3 className="text-lg font-bold text-green-900 dark:text-green-200 mb-4 flex items-center gap-2">
+                  ⚙️ Auto-Salary Schedule Settings
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      Payment Day (day of month)
+                    </label>
+                    <input
+                      type="number"
+                      min="1" max="28"
+                      value={autoPaymentSettings.paymentDay}
+                      onChange={(e) => setAutoPaymentSettings({ ...autoPaymentSettings, paymentDay: parseInt(e.target.value) || 25 })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Salaries will be processed on this day each month</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      Notify Before Payment
+                    </label>
+                    <div className="flex items-center gap-3 mt-2">
+                      <button
+                        onClick={() => setAutoPaymentSettings({ ...autoPaymentSettings, notifyBeforePayment: !autoPaymentSettings.notifyBeforePayment })}
+                        className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${autoPaymentSettings.notifyBeforePayment ? 'bg-green-500' : 'bg-gray-400'}`}
+                      >
+                        <span className={`inline-block w-4 h-4 transform transition-transform bg-white rounded-full ${autoPaymentSettings.notifyBeforePayment ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                      {autoPaymentSettings.notifyBeforePayment && (
+                        <input
+                          type="number" min="1" max="14"
+                          value={autoPaymentSettings.notificationDays}
+                          onChange={(e) => setAutoPaymentSettings({ ...autoPaymentSettings, notificationDays: parseInt(e.target.value) || 3 })}
+                          className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-sm"
+                        />
+                      )}
+                      {autoPaymentSettings.notifyBeforePayment && <span className="text-sm text-gray-600 dark:text-gray-400">days before</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      Require Approval Before Paying
+                    </label>
+                    <div className="flex items-center gap-3 mt-2">
+                      <button
+                        onClick={() => setAutoPaymentSettings({ ...autoPaymentSettings, requireApproval: !autoPaymentSettings.requireApproval })}
+                        className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${autoPaymentSettings.requireApproval ? 'bg-orange-500' : 'bg-gray-400'}`}
+                      >
+                        <span className={`inline-block w-4 h-4 transform transition-transform bg-white rounded-full ${autoPaymentSettings.requireApproval ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {autoPaymentSettings.requireApproval ? '🔒 Manual approval needed' : '⚡ Auto-processes instantly'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-lg text-sm text-gray-700 dark:text-gray-300">
+                  📅 <strong>Active schedule:</strong> Salaries will be processed on the <strong>{autoPaymentSettings.paymentDay}{autoPaymentSettings.paymentDay === 1 ? 'st' : autoPaymentSettings.paymentDay === 2 ? 'nd' : autoPaymentSettings.paymentDay === 3 ? 'rd' : 'th'}</strong> of each month
+                  {autoPaymentSettings.requireApproval ? ' — requires your approval first' : ' — fully automated'}.
+                  {autoPaymentSettings.notifyBeforePayment && ` You'll be notified ${autoPaymentSettings.notificationDays} days before.`}
+                </div>
+              </div>
+            )}
+
+            {autoPaymentSettings.enabled && !showSalarySettings && (
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg px-4 py-2 text-sm text-green-800 dark:text-green-300 flex items-center gap-2">
+                <span>⚡</span>
+                Auto-Pay runs on the <strong>{autoPaymentSettings.paymentDay}th</strong> each month
+                {autoPaymentSettings.requireApproval ? ' · requires approval' : ' · fully automated'}
+                {autoPaymentSettings.notifyBeforePayment && ` · notify ${autoPaymentSettings.notificationDays} days before`}
+              </div>
+            )}
 
             {/* Pending Payments */}
             {pendingPayments.length > 0 && (
@@ -2836,16 +2973,43 @@ export default function ProductivityPage() {
                           </span>
                         )}
                         {employee.salary && (
-                          <button
-                            onClick={() => {
-                              if (confirm(`Pay ${employee.name} R${employee.salary?.toLocaleString()} now?`)) {
-                                processSalaryPayment(employee.id, 'Manual payment');
-                              }
-                            }}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm"
-                          >
-                            💳 Pay Now
-                          </button>
+                          <div className="flex flex-col gap-2 items-end">
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Pay ${employee.name} R${employee.salary?.toLocaleString()} now?`)) {
+                                  await processSalaryPayment(employee.id, 'Manual payment');
+                                  // Generate payslip after payment
+                                  const payment: SalaryPayment = {
+                                    id: `payslip-preview-${Date.now()}`,
+                                    employeeId: employee.id,
+                                    employeeName: employee.name,
+                                    amount: employee.salary!,
+                                    paymentDate: new Date().toISOString(),
+                                    period: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+                                    status: 'paid',
+                                    paymentMethod: 'bank-transfer',
+                                  };
+                                  generatePayslip(employee, payment);
+                                }
+                              }}
+                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm"
+                            >
+                              💳 Pay Now
+                            </button>
+                            <button
+                              onClick={() => {
+                                const lastPayment = salaryPayments.filter(p => p.employeeId === employee.id && p.status === 'paid').sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0];
+                                if (lastPayment) {
+                                  generatePayslip(employee, lastPayment);
+                                } else {
+                                  alert('No paid salary on record yet for this employee.');
+                                }
+                              }}
+                              className="bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                            >
+                              📄 Payslip PDF
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>

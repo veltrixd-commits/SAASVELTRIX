@@ -1,7 +1,7 @@
 // Pricing Page - SaaS Subscription Tiers
 'use client';
 
-import { Check, Zap, Building2, Crown, Shield } from 'lucide-react';
+import { Check, Zap, Building2, Crown, Shield, GraduationCap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { setSelectedPlan } from '@/lib/auth';
 import { getPlanMeta, listPlans } from '@/lib/subscriptionPlans';
@@ -42,13 +42,13 @@ export default function PricingPage() {
 
         {/* Pricing Cards */}
         <div className="max-w-7xl mx-auto mb-12 sm:mb-16 overflow-x-auto pb-2">
-          <div className="grid grid-flow-col auto-cols-[minmax(300px,1fr)] lg:auto-cols-fr gap-6 sm:gap-8 min-w-max lg:min-w-0">
+          <div className="grid grid-flow-col auto-cols-[minmax(300px,1fr)] lg:auto-cols-fr gap-6 sm:gap-8 min-w-max lg:min-w-0 pt-6">
             {plans.map((plan) => {
               const IconComponent = iconMap[plan.icon];
               return (
                 <div
                   key={plan.code}
-                  className={`glass-card rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 hover:scale-105 transition-all relative ${
+                  className={`glass-card rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 hover:scale-105 transition-all relative overflow-visible ${
                     plan.recommended ? 'ring-4 ring-purple-500 shadow-2xl' : ''
                   }`}
                 >
@@ -133,6 +133,53 @@ export default function PricingPage() {
           >
             {enterprisePlan.ctaLabel}
           </button>
+        </div>
+
+        {/* Student Plan Card */}
+        <div className="max-w-4xl mx-auto mt-8 sm:mt-10 glass-card rounded-xl sm:rounded-2xl p-6 sm:p-8 lg:p-10 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-pink-900/20 border-2 border-indigo-300 dark:border-indigo-700">
+          <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
+            <div className="flex-shrink-0 text-center">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-3 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
+                <GraduationCap className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Student Plan</h2>
+              <div className="mt-2 mb-1">
+                <span className="text-4xl sm:text-5xl font-black text-indigo-600">R17</span>
+                <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">/month</span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">SA Students only</p>
+            </div>
+            <div className="flex-1">
+              <p className="text-base text-gray-600 dark:text-gray-300 mb-4">
+                Everything a South African student needs — APS calculator, SA university course matcher, personal OS, and study planner — all in one affordable plan.
+              </p>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
+                {[
+                  'APS Calculator (NSC rules)',
+                  'Course Suggestor (31 courses)',
+                  'SA University Database',
+                  'Personal Budget Tracker',
+                  'Wellness & Study Breaks',
+                  'Today Tab & Task Manager',
+                  'Ideas Voice Recorder',
+                  'AI Study Assistant',
+                ].map(feature => (
+                  <li key={feature} className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center flex-shrink-0">
+                      <Check className="w-2.5 h-2.5 text-white" />
+                    </div>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handleSelectPlan('Student')}
+                className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-2xl text-sm sm:text-base"
+              >
+                Start for R17/mo →
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* FAQ Section */}
