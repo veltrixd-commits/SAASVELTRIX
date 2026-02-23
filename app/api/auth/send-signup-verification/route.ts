@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── MVP bypass: create user immediately when verification is disabled or in console mode ──
-    const requireVerification = (process.env.AUTH_EMAIL_VERIFICATION_REQUIRED ?? 'true') === 'true';
+    const requireVerification = (process.env.AUTH_EMAIL_VERIFICATION_REQUIRED ?? 'false') === 'true';
     const isConsole = (process.env.EMAIL_TRANSPORT_MODE ?? 'smtp') === 'console';
 
     if (!requireVerification || isConsole) {
