@@ -41,20 +41,20 @@ export async function POST(request: NextRequest) {
     const summary = getWelcomeSummary(payload.userType);
 
     await deliverEmail({
-      from: process.env.SMTP_FROM || 'UniLife <noreply@unilife.local>',
+      from: process.env.SMTP_FROM || 'Veltrix <noreply@veltrix.app>',
       to: payload.email,
-      subject: 'Welcome to UniLife 🎉',
+      subject: 'Welcome to Veltrix 🎉',
       text: [
         `Hi ${payload.fullName},`,
         '',
-        'Welcome to UniLife — your all-in-one operating system.',
+        'Welcome to Veltrix — your all-in-one operating system.',
         summary,
         '',
         'You can now continue onboarding in your dashboard.',
       ].join('\n'),
       html: `
         <p>Hi ${payload.fullName},</p>
-        <p>Welcome to <strong>UniLife</strong> — your all-in-one operating system.</p>
+        <p>Welcome to <strong>Veltrix</strong> — your all-in-one operating system.</p>
         <p>${summary}</p>
         <p>You can now continue onboarding in your dashboard.</p>
       `,

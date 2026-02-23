@@ -299,13 +299,13 @@ export async function POST(request: NextRequest) {
     console.log('[email-console] verificationUrl:', verificationUrl);
 
     await deliverEmail({
-      from: process.env.SMTP_FROM || 'UniLife <noreply@unilife.local>',
+      from: process.env.SMTP_FROM || 'Veltrix <noreply@veltrix.app>',
       to: payload.email,
-      subject: 'Verify your email to complete your UniLife signup',
+      subject: 'Verify your email to complete your Veltrix signup',
       text: [
         `Hi ${payload.fullName},`,
         '',
-        'Thanks for signing up for UniLife.',
+        'Thanks for signing up for Veltrix.',
         'Please verify your email address using the link below to complete your signup:',
         verificationUrl,
         '',
@@ -315,7 +315,7 @@ export async function POST(request: NextRequest) {
       ].join('\n'),
       html: `
         <p>Hi ${payload.fullName},</p>
-        <p>Thanks for signing up for UniLife.</p>
+        <p>Thanks for signing up for Veltrix.</p>
         <p>Please verify your email address using the button below to complete your signup:</p>
         <p><a href="${verificationUrl}" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;">Verify Email</a></p>
         <p>Or copy and paste this link:</p>

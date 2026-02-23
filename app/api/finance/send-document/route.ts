@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     await deliverEmail({
-      from: process.env.SMTP_FROM || 'UniLife <noreply@unilife.local>',
+      from: process.env.SMTP_FROM || 'Veltrix <noreply@veltrix.app>',
       to: payload.to,
       subject: payload.subject,
       text: payload.body,

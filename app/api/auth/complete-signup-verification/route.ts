@@ -175,9 +175,9 @@ export async function POST(request: NextRequest) {
 
     try {
       await deliverEmail({
-        from: process.env.SMTP_FROM || 'UniLife <noreply@unilife.local>',
+        from: process.env.SMTP_FROM || 'Veltrix <noreply@veltrix.app>',
         to: verification.email,
-        subject: 'Welcome to UniLife!',
+        subject: 'Welcome to Veltrix!',
         text: `Hi ${verification.fullName},\n\nYour workspace is ready. Visit your dashboard to get started: ${DEFAULT_APP_URL}.`,
       });
     } catch (welcomeError) {
