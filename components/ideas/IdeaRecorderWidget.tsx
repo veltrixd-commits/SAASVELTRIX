@@ -281,7 +281,7 @@ const IdeaRecorderWidget = () => {
               <p className="text-xs uppercase text-gray-400">Voice Capture</p>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Idea Recorder</h3>
             </div>
-            <button onClick={() => { setOpen(false); setTranscriptVisible(false); }} className="p-2 text-gray-400 hover:text-gray-700">
+            <button onClick={() => { setOpen(false); setTranscriptVisible(false); }} title="Close" className="p-2 text-gray-400 hover:text-gray-700">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -322,6 +322,7 @@ const IdeaRecorderWidget = () => {
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
+                title="Category"
                 className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-purple-500 outline-none"
               >
                 {categories.map(cat => (
