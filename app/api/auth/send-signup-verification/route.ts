@@ -7,6 +7,8 @@ import { Prisma, SignupVerificationStatus, TenantType, UserRole } from '@prisma/
 import { getPrisma } from '@/lib/server/prisma';
 import { generateToken, hashPassword } from '@/lib/server-auth';
 import { deliverEmail, getEmailTransportState } from '@/lib/emailTransport';
+import { rateLimit, getClientIp } from '@/lib/rateLimit';
+import { seedDemoData } from '@/lib/server/demoSeed';
 
 type VerificationRequestPayload = {
   fullName: string;
