@@ -384,6 +384,7 @@ export default function DashboardLayout({
           </h1>
           <button
             onClick={() => setSidebarOpen(false)}
+            title="Close sidebar"
             className="lg:hidden p-1 glass-button rounded-lg text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
           >
             <X className="w-5 h-5" />
@@ -410,7 +411,7 @@ export default function DashboardLayout({
             })}
           </div>
 
-          {/* Personal OS Section */}}
+          {/* Personal OS Section */}
           <div className="mb-6">
             <div className="px-4 mb-2">
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Personal OS</span>
@@ -433,7 +434,7 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          {/* Business Tools Section */}}
+          {/* Business Tools Section */}
           <div className="mb-4">
             <div className="px-4 mb-2">
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Business Tools</span>
@@ -447,7 +448,6 @@ export default function DashboardLayout({
                     href={link.href}
                     className="flex items-center gap-3 px-4 py-3 glass-nav rounded-xl transition-all font-medium group text-gray-700 hover:text-primary-600"
                     onClick={() => setSidebarOpen(false)}
-                    style={{ animationDelay: `${index * 0.05}s` }}
                   >
                     <IconComponent className={`w-5 h-5 ${link.color} group-hover:scale-110 transition-all duration-200`} />
                     <span className="text-sm">{link.label}</span>
@@ -531,6 +531,7 @@ export default function DashboardLayout({
             {/* Left: Menu Toggle */}
             <button
               onClick={() => setSidebarOpen(true)}
+              title="Open sidebar"
               className="lg:hidden p-2 glass-button rounded-xl hover:scale-105 transition-transform"
             >
               <Menu className="w-6 h-6 text-gray-700 dark:text-gray-300" />
@@ -553,6 +554,7 @@ export default function DashboardLayout({
               {/* Search Button (Mobile) */}
               <button
                 onClick={() => setSearchOpen(true)}
+                title="Search"
                 className="md:hidden p-2.5 glass-button rounded-xl hover:scale-105 transition-all relative group"
               >
                 <Search className="w-5 h-5 text-gray-700 dark:text-gray-300" />
@@ -561,6 +563,7 @@ export default function DashboardLayout({
               {/* Notifications */}
               <button
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
+                title="Notifications"
                 className="p-2.5 glass-button rounded-xl hover:scale-105 transition-all relative group"
               >
                 <Bell className="w-5 h-5 text-gray-700 dark:text-gray-300" />
@@ -647,6 +650,7 @@ export default function DashboardLayout({
                 </h3>
                 <button
                   onClick={() => setNotificationsOpen(false)}
+                  title="Close notifications"
                   className="p-1 glass-button rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 >
                   <X className="w-4 h-4" />
@@ -715,6 +719,7 @@ export default function DashboardLayout({
                   />
                   <button
                     onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+                    title="Close search"
                     className="p-1.5 glass-button rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                   >
                     <X className="w-4 h-4" />
