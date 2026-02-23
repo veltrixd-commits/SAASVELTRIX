@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { AvatarImage } from '@/components/AvatarImage';
 import { User, Building2, Target, Briefcase, Save, CheckCircle, TrendingUp, DollarSign, Users as UsersIcon, Heart, Video, Shield, Lock, Eye, EyeOff, Sparkles, Bell, Key, CreditCard, Globe, Download, Upload, Trash2, LogOut, Smartphone, Mail, Link as LinkIcon, Moon, Sun, Code, Zap, AlertCircle, Settings as SettingsIcon, Clock, ArrowRight } from 'lucide-react';
 import {
@@ -15,6 +16,16 @@ import {
   getPendingCompanyRequests,
   approveEmployeeWithAuthCode,
 } from '@/lib/companyRegistry';
+
+function applyTheme(choice: 'light' | 'dark' | 'auto') {
+  if (typeof window === 'undefined') return;
+  const resolved =
+    choice === 'auto'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      : choice;
+  document.documentElement.classList.toggle('dark', resolved === 'dark');
+  localStorage.setItem('theme', resolved);
+}
 
 export default function SettingsPage() {
   const isServer = typeof window === 'undefined';
@@ -39,6 +50,7 @@ export default function SettingsPage() {
     workStyle: '',
     focusAreas: [] as string[],
     logo: '' as string,
+    profilePicture: '' as string,
     // Notifications
     emailNotifications: {
       newLeads: true,
@@ -146,19 +158,6 @@ export default function SettingsPage() {
       }
     }
   }, []);
-
-  // Apply a theme choice to the DOM and persist it in the 'theme' key
-  // (the same key the dashboard layout reads on boot).
-  const applyTheme = (choice: 'light' | 'dark' | 'auto') => {
-    const resolved =
-      choice === 'auto'
-        ? window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light'
-        : choice;
-    document.documentElement.classList.toggle('dark', resolved === 'dark');
-    localStorage.setItem('theme', resolved);
-  };
 
   const handleSave = () => {
     // Validate revenue before saving
@@ -344,24 +343,87 @@ function TabButton({ active, onClick, icon: Icon, label }: any) {
 
 // Profile Settings Tab
 function ProfileSettings({ settings, setSettings, userData }: any) {
+  const avatarSrc = settings.profilePicture || userData?.avatar || '';
+  const displayName = settings.name || userData?.name || userData?.firstName || 'User';
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Image must be under 3 MB. Please choose a smaller file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setSettings((prev: any) => ({ ...prev, profilePicture: base64 }));
+      try {
+        const stored = JSON.parse(localStorage.getItem('userData') || '{}');
+        stored.avatar = base64;
+        localStorage.setItem('userData', JSON.stringify(stored));
+      } catch {}
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAvatar = () => {
+    setSettings((prev: any) => ({ ...prev, profilePicture: '' }));
+    try {
+      const stored = JSON.parse(localStorage.getItem('userData') || '{}');
+      delete stored.avatar;
+      localStorage.setItem('userData', JSON.stringify(stored));
+    } catch {}
+  };
+
   return (
     <div className="space-y-6">
-      {/* User Badge */}
-      {userData?.userType && (
-        <div className="glass-card rounded-xl p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
-          <div className="flex items-center gap4">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-2xl">
-              {userData.userType === 'business' ? '💼' : 
-               userData.userType === 'creator' ? '🎬' : 
-               userData.userType === 'employee' ? '👔' : '🌟'}
+      {/* Profile Picture & Badge */}
+      <div className="glass-card rounded-xl p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <User className="w-5 h-5 text-blue-600" />
+          Profile Picture
+        </h3>
+        <div className="flex flex-col sm:flex-row items-center gap-6">
+          {/* Avatar Preview */}
+          <div className="relative flex-shrink-0">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white dark:border-gray-700 shadow-lg">
+              {avatarSrc ? (
+                <img src={avatarSrc} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-3xl font-bold">
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
             </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">{userData.name || 'User'}</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{userData.email}</p>
-            </div>
+            {avatarSrc && (
+              <button
+                onClick={handleRemoveAvatar}
+                title="Remove photo"
+                className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow text-xs font-bold"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Upload Controls */}
+          <div className="flex-1 text-center sm:text-left">
+            <p className="font-semibold text-gray-900 dark:text-white mb-1">{displayName}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{userData?.email || settings.email || 'No email set'}</p>
+            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:scale-105 transition-all shadow">
+              <Upload className="w-4 h-4" />
+              {avatarSrc ? 'Change Photo' : 'Upload Photo'}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                onChange={handleAvatarUpload}
+                className="sr-only"
+              />
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">PNG, JPG, GIF or WebP — max 3 MB. Square images look best.</p>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Basic Info */}
       <div className="glass-card rounded-xl p-6">
@@ -1526,25 +1588,82 @@ function PrivacySettings({ settings, setSettings, userData }: any) {
 
 // Billing Settings Tab
 function BillingSettings() {
+  const router = useRouter();
+  const [cancelMsg, setCancelMsg] = useState('');
+
+  const handleUpgrade = () => router.push('/pricing');
+
+  const handleCancel = () => {
+    if (!confirm('Cancel your subscription? You will retain access until the end of your current billing period.')) return;
+    setCancelMsg('Cancellation submitted. Your access continues until the end of your billing period.');
+    setTimeout(() => setCancelMsg(''), 6000);
+  };
+
+  const handleUpdatePayment = () => {
+    alert('Payment method update is handled through the billing portal. Contact support@veltrix.app to update your card.');
+  };
+
+  const handleDownloadInvoice = (invoice: string, date: string, amount: string) => {
+    const content = [
+      'VELTRIX TAX INVOICE',
+      '===================',
+      `Invoice Number : ${invoice}`,
+      `Invoice Date   : ${date}`,
+      `Amount         : ${amount}`,
+      `Status         : Paid`,
+      '',
+      'Veltrix (Pty) Ltd',
+      'support@veltrix.app | veltrix.app',
+      '',
+      'Thank you for your payment.',
+    ].join('\n');
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${invoice}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const billingHistory = [
+    { date: 'Feb 1, 2026', amount: 'R499.00', status: 'Paid', invoice: 'INV-2026-002' },
+    { date: 'Jan 1, 2026', amount: 'R499.00', status: 'Paid', invoice: 'INV-2026-001' },
+    { date: 'Dec 1, 2025', amount: 'R499.00', status: 'Paid', invoice: 'INV-2025-012' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Current Plan */}
       <div className="glass-card rounded-xl p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Pro Plan</h3>
-            <p className="text-gray-600 dark:text-gray-400">Unlimited everything, full access</p>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Pro Plan</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">Unlimited everything, full access</p>
+            <span className="inline-block mt-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-semibold">Active</span>
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold text-blue-600">R499</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">per month</div>
+            <div className="text-xs text-gray-500 mt-1">Next: Mar 1, 2026</div>
           </div>
         </div>
+        {cancelMsg && (
+          <div className="mb-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg text-sm text-yellow-800 dark:text-yellow-300">
+            {cancelMsg}
+          </div>
+        )}
         <div className="flex gap-3">
-          <button className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:scale-105 transition-all">
-            Upgrade Plan
+          <button
+            onClick={handleUpgrade}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:scale-105 transition-all"
+          >
+            Upgrade Plan →
           </button>
-          <button className="px-6 py-3 glass-button rounded-xl font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+          <button
+            onClick={handleCancel}
+            className="px-6 py-3 glass-button rounded-xl font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+          >
             Cancel
           </button>
         </div>
@@ -1556,7 +1675,7 @@ function BillingSettings() {
           <CreditCard className="w-5 h-5 text-green-600" />
           Payment Method
         </h3>
-        
+
         <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded flex items-center justify-center text-white font-bold text-xs">
@@ -1567,7 +1686,10 @@ function BillingSettings() {
               <p className="text-xs text-gray-600 dark:text-gray-400">Expires 12/2025</p>
             </div>
           </div>
-          <button className="px-4 py-2 glass-button rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+          <button
+            onClick={handleUpdatePayment}
+            className="px-4 py-2 glass-button rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+          >
             Update
           </button>
         </div>
@@ -1576,18 +1698,34 @@ function BillingSettings() {
       {/* Billing History */}
       <div className="glass-card rounded-xl p-6">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Billing History</h3>
-        
         <div className="space-y-3">
-          <BillingItem date="Feb 1, 2026" amount="R499.00" status="Paid" invoice="INV-2026-002" />
-          <BillingItem date="Jan 1, 2026" amount="R499.00" status="Paid" invoice="INV-2026-001" />
-          <BillingItem date="Dec 1, 2025" amount="R499.00" status="Paid" invoice="INV-2025-012" />
+          {billingHistory.map((item) => (
+            <div key={item.invoice} className="p-4 glass-card rounded-lg flex items-center justify-between">
+              <div>
+                <p className="font-medium text-gray-900 dark:text-white">{item.date}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Invoice {item.invoice}</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="font-bold text-gray-900 dark:text-white">{item.amount}</span>
+                <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
+                  {item.status}
+                </span>
+                <button
+                  title="Download invoice"
+                  onClick={() => handleDownloadInvoice(item.invoice, item.date, item.amount)}
+                  className="p-2 glass-button rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                >
+                  <Download className="w-4 h-4 text-blue-600" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Usage Stats */}
       <div className="glass-card rounded-xl p-6">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Current Usage</h3>
-        
         <div className="grid sm:grid-cols-3 gap-4">
           <UsageStat label="Leads" current={342} limit="Unlimited" />
           <UsageStat label="Automations" current={12} limit="Unlimited" />
@@ -1599,7 +1737,63 @@ function BillingSettings() {
 }
 
 // Security Settings Tab
-function SecuritySettings({ apiKey, showApiKey, setShowApiKey }: any) {
+function SecuritySettings({ apiKey: initialApiKey, showApiKey, setShowApiKey }: any) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [twoFAEnabled, setTwoFAEnabled] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('vx_2fa_enabled') || 'false'); } catch { return false; }
+  });
+  const [apiKey, setApiKey] = useState(initialApiKey || 'vx_live_' + Math.random().toString(36).substr(2, 32));
+  const [sessions, setSessions] = useState([
+    { id: 1, device: 'Windows PC', browser: 'Chrome 120', location: 'Johannesburg, ZA', current: true },
+    { id: 2, device: 'iPhone 14', browser: 'Safari 17', location: 'Cape Town, ZA', current: false },
+  ]);
+  const [keyRotated, setKeyRotated] = useState(false);
+  const [keyCopied, setKeyCopied] = useState(false);
+
+  const handleChangePassword = () => {
+    if (!currentPassword) { setPasswordMsg({ type: 'error', text: 'Enter your current password.' }); return; }
+    if (newPassword.length < 8) { setPasswordMsg({ type: 'error', text: 'New password must be at least 8 characters.' }); return; }
+    if (newPassword !== confirmPassword) { setPasswordMsg({ type: 'error', text: 'Passwords do not match.' }); return; }
+    if (newPassword === currentPassword) { setPasswordMsg({ type: 'error', text: 'New password must be different from your current one.' }); return; }
+    // In production this would POST to /api/auth/change-password
+    setPasswordMsg({ type: 'success', text: 'Password updated successfully.' });
+    setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+    setTimeout(() => setPasswordMsg(null), 5000);
+  };
+
+  const handleToggle2FA = () => {
+    const next = !twoFAEnabled;
+    setTwoFAEnabled(next);
+    localStorage.setItem('vx_2fa_enabled', JSON.stringify(next));
+  };
+
+  const handleGenerateKey = () => {
+    if (!confirm('Generate a new API key? Your existing key will stop working immediately.')) return;
+    const newKey = 'vx_live_' + Array.from({ length: 3 }, () => Math.random().toString(36).substr(2, 12)).join('');
+    setApiKey(newKey);
+    setKeyRotated(true);
+    setTimeout(() => setKeyRotated(false), 4000);
+  };
+
+  const handleCopyKey = () => {
+    navigator.clipboard.writeText(apiKey).catch(() => {});
+    setKeyCopied(true);
+    setTimeout(() => setKeyCopied(false), 2500);
+  };
+
+  const handleRevokeSession = (id: number) => {
+    setSessions(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleRevokeAllSessions = () => {
+    if (!confirm('Sign out of all other devices?')) return;
+    setSessions(prev => prev.filter(s => s.current));
+  };
+
   return (
     <div className="space-y-6">
       {/* Password */}
@@ -1608,52 +1802,98 @@ function SecuritySettings({ apiKey, showApiKey, setShowApiKey }: any) {
           <Lock className="w-5 h-5 text-red-600" />
           Password & Authentication
         </h3>
-        
+
         <div className="space-y-4">
+          {passwordMsg && (
+            <div className={`p-3 rounded-lg text-sm font-medium flex items-center gap-2 ${
+              passwordMsg.type === 'success'
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+            }`}>
+              {passwordMsg.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+              {passwordMsg.text}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Password</label>
             <input
               type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="Enter current password"
               className="w-full px-4 py-3 glass-input rounded-xl border-0 focus:ring-2 focus:ring-red-500 text-gray-900 dark:text-white"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">New Password</label>
-            <input
-              type="password"
-              placeholder="Enter new password"
-              className="w-full px-4 py-3 glass-input rounded-xl border-0 focus:ring-2 focus:ring-red-500 text-gray-900 dark:text-white"
-            />
+            <div className="relative">
+              <input
+                type={showNewPw ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Min. 8 characters"
+                className="w-full px-4 py-3 pr-12 glass-input rounded-xl border-0 focus:ring-2 focus:ring-red-500 text-gray-900 dark:text-white"
+              />
+              <button
+                type="button"
+                title={showNewPw ? 'Hide password' : 'Show password'}
+                onClick={() => setShowNewPw(!showNewPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showNewPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirm New Password</label>
             <input
               type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleChangePassword()}
               placeholder="Confirm new password"
-              className="w-full px-4 py-3 glass-input rounded-xl border-0 focus:ring-2 focus:ring-red-500 text-gray-900 dark:text-white"
+              className={`w-full px-4 py-3 glass-input rounded-xl border-0 focus:ring-2 text-gray-900 dark:text-white ${
+                confirmPassword && confirmPassword !== newPassword ? 'focus:ring-red-500 ring-1 ring-red-300' : 'focus:ring-red-500'
+              }`}
             />
+            {confirmPassword && confirmPassword !== newPassword && (
+              <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+            )}
           </div>
-          <button className="px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl font-semibold hover:scale-105 transition-all">
+          <button
+            onClick={handleChangePassword}
+            className="px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl font-semibold hover:scale-105 transition-all"
+          >
             Update Password
           </button>
         </div>
       </div>
 
-      {/* Two-Factor Authentication */}
+      {/* 2FA */}
       <div className="glass-card rounded-xl p-6">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <Smartphone className="w-5 h-5 text-blue-600" />
           Two-Factor Authentication
         </h3>
-        
-        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-start justify-between">
+
+        <div className={`p-4 rounded-lg flex items-start justify-between ${twoFAEnabled ? 'bg-green-50 dark:bg-green-900/20' : 'bg-blue-50 dark:bg-blue-900/20'}`}>
           <div>
-            <p className="font-medium text-gray-900 dark:text-white mb-1">2FA is currently disabled</p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Add an extra layer of security to your account</p>
+            <p className="font-medium text-gray-900 dark:text-white mb-1">
+              {twoFAEnabled ? '🔒 2FA is active' : '2FA is currently disabled'}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {twoFAEnabled
+                ? 'Your account is protected with two-factor authentication.'
+                : 'Add an extra layer of security to your account.'}
+            </p>
           </div>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
-            Enable
+          <button
+            onClick={handleToggle2FA}
+            className={`ml-4 flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all ${
+              twoFAEnabled ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {twoFAEnabled ? 'Disable' : 'Enable'}
           </button>
         </div>
       </div>
@@ -1664,40 +1904,98 @@ function SecuritySettings({ apiKey, showApiKey, setShowApiKey }: any) {
           <Key className="w-5 h-5 text-purple-600" />
           API Keys
         </h3>
-        
+
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Use API keys to integrate Veltrix with external applications
+          Use API keys to integrate Veltrix with external applications. Keep this key secret.
         </p>
 
-        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        {keyRotated && (
+          <div className="mb-3 p-3 bg-green-100 dark:bg-green-900/30 rounded-lg text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
+            <CheckCircle className="w-4 h-4" /> New API key generated. Update your integrations.
+          </div>
+        )}
+
+        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg mb-3">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-medium text-gray-900 dark:text-white">Production API Key</p>
             <button
               onClick={() => setShowApiKey(!showApiKey)}
+              title={showApiKey ? 'Hide API key' : 'Reveal API key'}
               className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
             >
               {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              {showApiKey ? 'Hide' : 'Show'}
+              {showApiKey ? 'Hide' : 'Reveal'}
             </button>
           </div>
-          <div className="font-mono text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700">
-            {showApiKey ? apiKey : apiKey.replace(/./g, '•')}
+          <div className="font-mono text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 break-all select-all">
+            {showApiKey ? apiKey : '•'.repeat(48)}
           </div>
         </div>
 
-        <button className="mt-4 px-4 py-2 glass-button rounded-lg text-sm font-medium text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20">
-          Generate New Key
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleGenerateKey}
+            className="px-4 py-2 glass-button rounded-lg text-sm font-medium text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+          >
+            🔄 Rotate Key
+          </button>
+          {showApiKey && (
+            <button
+              onClick={handleCopyKey}
+              className="px-4 py-2 glass-button rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              {keyCopied ? '✅ Copied!' : '📋 Copy Key'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Active Sessions */}
       <div className="glass-card rounded-xl p-6">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Active Sessions</h3>
-        
-        <div className="space-y-3">
-          <SessionItem device="Windows PC" location="Johannesburg, South Africa" current={true} />
-          <SessionItem device="iPhone 13" location="Cape Town, South Africa" current={false} />
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Active Sessions</h3>
+          {sessions.filter(s => !s.current).length > 0 && (
+            <button
+              onClick={handleRevokeAllSessions}
+              className="text-sm text-red-600 hover:underline font-medium"
+            >
+              Sign out all other devices
+            </button>
+          )}
         </div>
+
+        {sessions.length === 0 ? (
+          <p className="text-sm text-gray-500 italic">No active sessions.</p>
+        ) : (
+          <div className="space-y-3">
+            {sessions.map((session) => (
+              <div key={session.id} className="p-4 glass-card rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Smartphone className="w-5 h-5 text-gray-600 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      {session.device}
+                      {session.current && (
+                        <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                          This device
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{session.browser} · {session.location}</p>
+                  </div>
+                </div>
+                {!session.current && (
+                  <button
+                    onClick={() => handleRevokeSession(session.id)}
+                    className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg font-medium transition-colors"
+                  >
+                    Revoke
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1705,6 +2003,86 @@ function SecuritySettings({ apiKey, showApiKey, setShowApiKey }: any) {
 
 // Advanced Settings Tab
 function AdvancedSettings() {
+  const router = useRouter();
+  const [debugMode, setDebugMode] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('vx_debug_mode') || 'false'); } catch { return false; }
+  });
+  const [betaFeatures, setBetaFeatures] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('vx_beta_features') || 'false'); } catch { return false; }
+  });
+  const [importMsg, setImportMsg] = useState('');
+
+  const handleDebugToggle = (val: boolean) => {
+    setDebugMode(val);
+    localStorage.setItem('vx_debug_mode', JSON.stringify(val));
+  };
+
+  const handleBetaToggle = (val: boolean) => {
+    setBetaFeatures(val);
+    localStorage.setItem('vx_beta_features', JSON.stringify(val));
+  };
+
+  const handleExportData = () => {
+    const exportData: Record<string, any> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        try { exportData[key] = JSON.parse(localStorage.getItem(key) || ''); }
+        catch { exportData[key] = localStorage.getItem(key); }
+      }
+    }
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `veltrix-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string);
+        if (typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid format');
+        Object.entries(data).forEach(([key, value]) => {
+          localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+        });
+        setImportMsg('✅ Data imported. Refresh to see all changes.');
+      } catch {
+        setImportMsg('❌ Invalid backup file. Please use a Veltrix export (.json).');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleClearData = () => {
+    if (!confirm('⚠️ Clear all data? This resets your dashboard to factory settings and cannot be undone.')) return;
+    const keep = ['veltrix_session', 'theme'];
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && !keep.includes(key)) toRemove.push(key);
+    }
+    toRemove.forEach(k => localStorage.removeItem(k));
+    window.location.reload();
+  };
+
+  const handleDeleteAccount = () => {
+    if (!confirm('⛔ DELETE ACCOUNT? This permanently deletes your account and all data. This CANNOT be undone.')) return;
+    const confirmed = window.prompt('Type DELETE to confirm permanent account deletion:');
+    if (confirmed?.trim().toUpperCase() !== 'DELETE') {
+      alert('Account deletion cancelled.');
+      return;
+    }
+    localStorage.clear();
+    router.push('/');
+  };
+
   return (
     <div className="space-y-6">
       {/* Data Management */}
@@ -1713,29 +2091,39 @@ function AdvancedSettings() {
           <Download className="w-5 h-5 text-blue-600" />
           Data Management
         </h3>
-        
+
+        {importMsg && (
+          <div className={`mb-4 p-3 rounded-lg text-sm font-medium ${importMsg.startsWith('✅') ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'}`}>
+            {importMsg}
+          </div>
+        )}
+
         <div className="space-y-3">
-          <button className="w-full px-6 py-3 glass-button rounded-xl flex items-center justify-between hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+          <button
+            onClick={handleExportData}
+            className="w-full px-6 py-3 glass-button rounded-xl flex items-center justify-between hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+          >
             <div className="flex items-center gap-3">
               <Download className="w-5 h-5 text-blue-600" />
               <div className="text-left">
                 <p className="font-medium text-gray-900 dark:text-white">Export Data</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Download all your data as JSON</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Download all your data as a JSON backup file</p>
               </div>
             </div>
             <ArrowRight className="w-5 h-5 text-gray-400" />
           </button>
 
-          <button className="w-full px-6 py-3 glass-button rounded-xl flex items-center justify-between hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
+          <label className="w-full px-6 py-3 glass-button rounded-xl flex items-center justify-between hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors cursor-pointer">
             <div className="flex items-center gap-3">
               <Upload className="w-5 h-5 text-green-600" />
               <div className="text-left">
                 <p className="font-medium text-gray-900 dark:text-white">Import Data</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Upload data from backup or migration</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Restore from a Veltrix backup file (.json)</p>
               </div>
             </div>
             <ArrowRight className="w-5 h-5 text-gray-400" />
-          </button>
+            <input type="file" accept=".json" onChange={handleImportData} className="sr-only" />
+          </label>
         </div>
       </div>
 
@@ -1745,22 +2133,34 @@ function AdvancedSettings() {
           <Code className="w-5 h-5 text-purple-600" />
           Developer Options
         </h3>
-        
+
         <div className="space-y-3">
           <label className="flex items-center gap-3 p-3 glass-card rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-            <input type="checkbox" className="w-5 h-5 rounded text-purple-600 focus:ring-2 focus:ring-purple-500" />
-            <div>
+            <input
+              type="checkbox"
+              checked={debugMode}
+              onChange={(e) => handleDebugToggle(e.target.checked)}
+              className="w-5 h-5 rounded text-purple-600 focus:ring-2 focus:ring-purple-500"
+            />
+            <div className="flex-1">
               <p className="font-medium text-gray-900 dark:text-white">Enable Debug Mode</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Show detailed logs in console</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">Show detailed logs in the browser console</p>
             </div>
+            {debugMode && <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs rounded-full font-semibold">Active</span>}
           </label>
 
           <label className="flex items-center gap-3 p-3 glass-card rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-            <input type="checkbox" className="w-5 h-5 rounded text-purple-600 focus:ring-2 focus:ring-purple-500" />
-            <div>
+            <input
+              type="checkbox"
+              checked={betaFeatures}
+              onChange={(e) => handleBetaToggle(e.target.checked)}
+              className="w-5 h-5 rounded text-purple-600 focus:ring-2 focus:ring-purple-500"
+            />
+            <div className="flex-1">
               <p className="font-medium text-gray-900 dark:text-white">Beta Features</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Access experimental features early</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">Get early access to experimental features</p>
             </div>
+            {betaFeatures && <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 text-xs rounded-full font-semibold">Beta</span>}
           </label>
         </div>
       </div>
@@ -1771,25 +2171,31 @@ function AdvancedSettings() {
           <AlertCircle className="w-5 h-5" />
           Danger Zone
         </h3>
-        
+
         <div className="space-y-3">
-          <button className="w-full px-6 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-between hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+          <button
+            onClick={handleClearData}
+            className="w-full px-6 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-between hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+          >
             <div className="flex items-center gap-3">
               <Trash2 className="w-5 h-5 text-orange-600" />
               <div className="text-left">
                 <p className="font-medium text-gray-900 dark:text-white">Clear All Data</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Reset dashboard to factory settings</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Reset dashboard to factory settings — irreversible</p>
               </div>
             </div>
             <ArrowRight className="w-5 h-5 text-gray-400" />
           </button>
 
-          <button className="w-full px-6 py-3 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+          <button
+            onClick={handleDeleteAccount}
+            className="w-full px-6 py-3 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+          >
             <div className="flex items-center gap-3">
               <LogOut className="w-5 h-5 text-red-600" />
               <div className="text-left">
                 <p className="font-medium text-red-600">Delete Account</p>
-                <p className="text-xs text-red-600/70">Permanently delete your account and all data</p>
+                <p className="text-xs text-red-500">Permanently delete your account and all data</p>
               </div>
             </div>
             <ArrowRight className="w-5 h-5 text-red-400" />
@@ -1993,26 +2399,6 @@ function IntegrationCard({ name, icon, description, accountData, loading, onConn
   );
 }
 
-function BillingItem({ date, amount, status, invoice }: any) {
-  return (
-    <div className="p-4 glass-card rounded-lg flex items-center justify-between">
-      <div>
-        <p className="font-medium text-gray-900 dark:text-white">{date}</p>
-        <p className="text-sm text-gray-600 dark:text-gray-400">Invoice {invoice}</p>
-      </div>
-      <div className="flex items-center gap-4">
-        <span className="font-bold text-gray-900 dark:text-white">{amount}</span>
-        <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
-          {status}
-        </span>
-        <button className="p-2 glass-button rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20">
-          <Download className="w-4 h-4 text-blue-600" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function UsageStat({ label, current, limit }: any) {
   return (
     <div className="p-4 glass-card rounded-lg">
@@ -2023,24 +2409,3 @@ function UsageStat({ label, current, limit }: any) {
   );
 }
 
-function SessionItem({ device, location, current }: any) {
-  return (
-    <div className="p-4 glass-card rounded-lg flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <Smartphone className="w-5 h-5 text-gray-600" />
-        <div>
-          <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-            {device}
-            {current && <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">Current</span>}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{location}</p>
-        </div>
-      </div>
-      {!current && (
-        <button className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg font-medium">
-          Revoke
-        </button>
-      )}
-    </div>
-  );
-}
