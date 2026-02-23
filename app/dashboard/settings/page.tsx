@@ -869,12 +869,24 @@ const UPCOMING_INTEGRATIONS = [
   { id: 'payment-providers', title: '💳 Payment', description: 'Stripe, PayPal, Paystack' },
 ];
 
+const PLATFORM_MANUAL_CONFIG: Record<string, { icon: string; label: string; placeholder: string; fieldKey: string; extraKey?: string }> = {
+  tiktok:    { icon: '🎵', label: 'TikTok Handle',            placeholder: '@yourusername',        fieldKey: 'username' },
+  instagram: { icon: '📸', label: 'Instagram Handle',         placeholder: '@yourusername',        fieldKey: 'username' },
+  facebook:  { icon: '👍', label: 'Facebook Page Name',       placeholder: 'Your Page Name',       fieldKey: 'username' },
+  whatsapp:  { icon: '💬', label: 'WhatsApp Phone Number',    placeholder: '+27 71 234 5678',      fieldKey: 'phoneNumber', extraKey: 'businessName' },
+  linkedin:  { icon: '💼', label: 'LinkedIn Full Name',       placeholder: 'Your Full Name',       fieldKey: 'username' },
+  twitter:   { icon: '🐦', label: 'Twitter / X Handle',      placeholder: '@yourusername',        fieldKey: 'username' },
+};
+
 function IntegrationSettings({ settings, setSettings }: any) {
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string>('');
   const [oauthHealth, setOauthHealth] = useState<any>(null);
   const [integrationWaitlist, setIntegrationWaitlist] = useState<string[]>([]);
   const [integrationNotice, setIntegrationNotice] = useState('');
+  const [manualLinkPlatform, setManualLinkPlatform] = useState<string | null>(null);
+  const [manualLinkInput, setManualLinkInput] = useState('');
+  const [manualLinkExtra, setManualLinkExtra] = useState('');
 
   useEffect(() => {
     const loadOauthHealth = async () => {
@@ -955,6 +967,41 @@ function IntegrationSettings({ settings, setSettings }: any) {
     });
   };
 
+  const handleManualLink = () => {
+    if (!manualLinkPlatform) return;
+    const cfg = PLATFORM_MANUAL_CONFIG[manualLinkPlatform];
+    const value = manualLinkInput.trim();
+    if (!value) return;
+
+    const handle = cfg.fieldKey === 'username' && value && !value.startsWith('@') && !value.startsWith('+') ? `@${value}` : value;
+    const accountEntry: Record<string, any> = {
+      connected: true,
+      connectedAt: new Date().toISOString(),
+      [cfg.fieldKey]: handle,
+    };
+    if (cfg.extraKey) accountEntry[cfg.extraKey] = manualLinkExtra.trim() || 'WhatsApp Business';
+    if (cfg.fieldKey === 'username') accountEntry.profileUrl = '';
+
+    setSettings((prev: any) => {
+      const updated = {
+        ...prev,
+        connectedAccounts: {
+          ...prev.connectedAccounts,
+          [manualLinkPlatform]: {
+            ...prev.connectedAccounts?.[manualLinkPlatform],
+            ...accountEntry,
+          },
+        },
+      };
+      localStorage.setItem('userSettings', JSON.stringify(updated));
+      return updated;
+    });
+
+    setManualLinkPlatform(null);
+    setManualLinkInput('');
+    setManualLinkExtra('');
+  };
+
   const handleConnect = async (platform: string) => {
     setConnectingPlatform(platform);
     setAuthError('');
@@ -967,7 +1014,12 @@ function IntegrationSettings({ settings, setSettings }: any) {
 
       const startData = await startResponse.json();
       if (!startResponse.ok || !startData?.authUrl) {
-        throw new Error(startData?.error || 'Failed to start authentication');
+        // OAuth credentials not configured → fall back to manual linking
+        setManualLinkInput('');
+        setManualLinkExtra('');
+        setManualLinkPlatform(platform);
+        setConnectingPlatform(null);
+        return;
       }
 
       const width = 620;
@@ -1047,6 +1099,72 @@ function IntegrationSettings({ settings, setSettings }: any) {
 
   return (
     <div className="space-y-6">
+      {/* Manual Link Modal */}
+      {manualLinkPlatform && (() => {
+        const cfg = PLATFORM_MANUAL_CONFIG[manualLinkPlatform];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-3xl">{cfg.icon}</span>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Link {manualLinkPlatform.charAt(0).toUpperCase() + manualLinkPlatform.slice(1)}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Enter your account details to link it</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{cfg.label}</label>
+                  <input
+                    type={cfg.fieldKey === 'phoneNumber' ? 'tel' : 'text'}
+                    value={manualLinkInput}
+                    onChange={(e) => setManualLinkInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleManualLink()}
+                    placeholder={cfg.placeholder}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                    title={cfg.label}
+                  />
+                </div>
+                {cfg.extraKey && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Business Name <span className="text-gray-400">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={manualLinkExtra}
+                      onChange={(e) => setManualLinkExtra(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleManualLink()}
+                      placeholder="Your WhatsApp Business name"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      title="Business Name"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setManualLinkPlatform(null); setManualLinkInput(''); setManualLinkExtra(''); }}
+                  className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  title="Cancel"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleManualLink}
+                  disabled={!manualLinkInput.trim()}
+                  className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Link account"
+                >
+                  Link Account
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* OAuth Info Banner */}
       <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
         <div className="flex items-start gap-3">
