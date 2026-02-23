@@ -1067,6 +1067,7 @@ function ContentCalendar() {
                 <select
                   value={newDrop.platform}
                   onChange={(e) => setNewDrop({ ...newDrop, platform: e.target.value })}
+                  title="Platform"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 >
                   <option>TikTok</option>
@@ -1082,6 +1083,7 @@ function ContentCalendar() {
                   type="date"
                   value={newDrop.date}
                   onChange={(e) => setNewDrop({ ...newDrop, date: e.target.value })}
+                  title="Publish Date"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
@@ -1090,6 +1092,7 @@ function ContentCalendar() {
                 <select
                   value={newDrop.status}
                   onChange={(e) => setNewDrop({ ...newDrop, status: e.target.value })}
+                  title="Status"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 >
                   <option>Idea</option>
@@ -1482,6 +1485,7 @@ function BrandDeals() {
                   type="date"
                   value={newDeal.deadline}
                   onChange={(e) => setNewDeal({...newDeal, deadline: e.target.value})}
+                  title="Deadline"
                   className="w-full px-4 py-2 glass-input rounded-lg"
                 />
               </div>
